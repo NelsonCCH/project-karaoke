@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Karaoke lyrics</title>
+<script>try{var _s=localStorage.getItem("pk_tv_scheme")||"song";if(_s==="auto"){_s=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"nuit":"paper";}document.documentElement.setAttribute("data-scheme",_s);if(_s==="song"||_s==="nuit"||_s==="ocean"||_s==="bordeaux")document.documentElement.classList.add("dark");}catch(e){}</script>
+<link rel="stylesheet" href="/theme.css">
+<style>
+/* "Song colour" is the Spotify look: one strong colour per song, sung lines white, upcoming lines dark.
+   The house schemes reuse their own paper / ink / muted. The menu itself borrows Nuit in song mode. */
+:root[data-scheme="song"]{--paper:#14161c;--card:#1e222b;--ink:#e8eaf0;--muted:#9aa3b2;--line:#313745;--accent:#7a90ff;--accent-soft:#262b36}
+:root{--bg:var(--paper);--sung:var(--ink);--todo:color-mix(in srgb,var(--muted) 55%,var(--paper));--fill:var(--accent)}
+:root[data-scheme="song"]{--bg:var(--song,#7d3c3c);--sung:#ffffff;--todo:rgba(0,0,0,.55);--fill:#ffffff}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--sung);overflow:hidden;
+  font:16px/1.3 -apple-system,"Segoe UI",system-ui,"PingFang TC","Microsoft JhengHei",sans-serif}
+.top{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:18px 6vw 10px;z-index:5;
+  background:var(--bg);box-shadow:0 14px 18px -6px var(--bg)}
+.track{flex:1;font-size:clamp(14px,1.6vw,24px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sung);opacity:.85}
+.track b{font-weight:700}
+.top .theme{opacity:.3;transition:opacity .3s}
+.top:hover .theme,.top .theme[open]{opacity:1}
+#viewport{position:absolute;inset:0;overflow:hidden}
+#lines{position:absolute;left:0;right:0;top:0;padding:0 6vw;will-change:transform}
+.line{font-size:clamp(24px,3.4vw,54px);font-weight:700;line-height:1.25;margin:0 0 .55em;color:var(--todo);
+  max-width:min(1400px,88vw);overflow-wrap:anywhere}
+.line.past{color:var(--sung);opacity:.75}
+.line.now{color:transparent;
+  background:linear-gradient(90deg,var(--fill) var(--p,0%),var(--todo) var(--p,0%));
+  -webkit-background-clip:text;background-clip:text}
+.line.blank{min-height:.6em}
+.msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 8vw;
+  font-size:clamp(20px,3vw,44px);font-weight:700;color:var(--sung)}
+.msg small{display:block;font-size:.55em;font-weight:400;opacity:.8;margin-top:1.2em}
+#plain .line{color:var(--sung)}
+body.idle{cursor:none}
+/* Scan-to-control card: any phone on the home Wi-Fi opens the same control page. */
+.qr{position:fixed;right:3vw;bottom:3vh;z-index:6;display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:8px 8px 6px;border-radius:12px;background:rgba(0,0,0,.28);color:#fff;font-size:clamp(11px,.9vw,15px)}
+.qr .code{width:clamp(96px,8.5vw,150px);aspect-ratio:1;border-radius:6px;overflow:hidden}
+.qr .code svg{display:block;width:100%;height:100%}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="track" id="track"></div>
+  <details class="theme" id="theme">
+    <summary title="Colour scheme" aria-label="Colour scheme">&#127912;</summary>
+    <div class="theme-menu" id="thememenu" role="menu"></div>
+  </details>
+</div>
+<div id="viewport"><div id="lines"></div></div>
+<div class="msg" id="msg">Connecting to the PC…</div>
+<div class="qr" id="qr" hidden><div class="code" id="qrcode"></div><span>Scan to control</span></div>
+<script src="/theme.js"></script>
+<script src="/qr.js"></script>
+<script>
+initTheme("pk_tv_scheme", "song", "nuit",
+  [{ id:"song", name:"Song colour", sub:"like Spotify", group:"", dots:["#7d3c3c","#2f6b6b","#5b3f86"] }]);
+var $ = function(id){ return document.getElementById(id); };
+var state = null, base = null, lyr = null, lyrSerial = null, built = null, cur = -2, clock = null;
+
+/* Spotify-like song colours: deep, saturated enough to feel like album art, dark enough for white text. */
+var SONG_COLOURS = ["#7d3c3c","#2f6b6b","#5b3f86","#6b5a2a","#3c5a8c","#8a4a2f","#2f6d4a","#7a3561","#4a4f8f","#6d4a3a"];
+function songColour(t){
+  var s = (t.title || "") + (t.artist || ""), h = 0;
+  for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return SONG_COLOURS[h % SONG_COLOURS.length];
+}
+
+/* Song position now being heard: the PC's figure at the last poll, run on by the local clock while playing,
+   eased toward each new poll so the highlight never jitters. */
+function target(){
+  if (!base) return null;
+  return base.pos + (base.playing ? (performance.now() - base.t) / 1000 : 0);
+}
+
+function poll(){
+  fetch("/state", {cache:"no-store"}).then(function(r){ return r.json(); }).then(function(s){
+    state = s;
+    base = s.position == null ? null : {pos:s.position, t:performance.now(), playing:s.playing};
+    var serial = s.track ? s.track.serial : null;
+    if (serial !== lyrSerial){
+      lyrSerial = serial; lyr = null; built = null;
+      if (serial) loadLyrics(serial);
+      if (s.track) document.documentElement.style.setProperty("--song", songColour(s.track));
+    }
+    $("track").innerHTML = s.track ? "<b>" + esc(s.track.title) + "</b> · " + esc(s.track.artist) : "";
+    if (s.phone_url && $("qr").dataset.url !== s.phone_url){
+      $("qr").dataset.url = s.phone_url;
+      $("qrcode").innerHTML = qrSvg(s.phone_url);
+      $("qr").title = s.phone_url;
+      $("qr").hidden = false;
+    }
+  }).catch(function(){ state = null; base = null; })
+    .finally(function(){ setTimeout(poll, 250); });
+}
+
+function loadLyrics(serial){
+  fetch("/lyrics?serial=" + serial, {cache:"no-store"}).then(function(r){ return r.json(); }).then(function(l){
+    if (serial !== lyrSerial) return;
+    if (l.loading){ setTimeout(function(){ loadLyrics(serial); }, 500); return; }
+    lyr = l; built = null;
+  }).catch(function(){ setTimeout(function(){ loadLyrics(serial); }, 2000); });
+}
+
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+function message(html){
+  $("viewport").hidden = true;
+  $("msg").hidden = false;
+  if ($("msg").dataset.h !== html){ $("msg").dataset.h = html; $("msg").innerHTML = html; }
+}
+
+function build(L){
+  $("lines").innerHTML = L.map(function(l, k){
+    return '<div class="line' + (l[1] ? "" : " blank") + '" data-k="' + k + '">' + esc(l[1]) + '</div>';
+  }).join("");
+  built = lyrSerial; cur = -2; scrollY = null;
+}
+
+/* Keep the current line about a third of the way down, like Spotify, with lines before and after visible.
+   The glide runs in the frame loop (eased each frame) rather than as a CSS transition. */
+var scrollY = null, scrollGoal = 0;
+function scrollTo(i){
+  var el = $("lines").children[Math.max(0, i)];
+  if (el) scrollGoal = el.offsetTop - window.innerHeight * 0.36;
+}
+function glide(){
+  if (scrollY == null || Math.abs(scrollGoal - scrollY) > window.innerHeight * 2) scrollY = scrollGoal;
+  scrollY += (scrollGoal - scrollY) * 0.12;
+  $("lines").style.transform = "translateY(" + (-scrollY).toFixed(1) + "px)";
+}
+
+function frame(){
+  requestAnimationFrame(frame);
+  if (!state) return message("Can't reach the PC — is it on?");
+  if (!state.active) return message("Karaoke is off.<small>Scan the code to start it from your phone, or open "
+    + esc(state.phone_url || location.host) + "</small>");
+  if (!state.ready) return message(esc(state.status || "Loading…"));
+  var t = target();
+  if (t == null) return message("Play a song on Spotify.");
+  clock = (clock == null || Math.abs(t - clock) > 0.4) ? t : clock + (t - clock) * 0.15;
+  if (!lyr) return message("Finding lyrics…");
+  var L = lyr.synced || [];
+  if (!L.length && !lyr.plain) return message("No lyrics found for this song.");
+  $("msg").hidden = true;
+  $("viewport").hidden = false;
+
+  if (!L.length){       // unsynced lyrics: show them all and scroll through with the song
+    if (built !== lyrSerial){ build(lyr.plain.split("\n").map(function(s){ return [0, s]; })); }
+    var dur = (state.track && state.track.duration) || 240, lines = $("lines");
+    var room = Math.max(0, lines.scrollHeight - window.innerHeight * 0.6);
+    scrollGoal = room * Math.min(1, clock / dur) - window.innerHeight * 0.2;
+    glide();
+    lines.querySelectorAll(".line").forEach(function(e){ e.className = "line past"; });
+    return;
+  }
+  if (built !== lyrSerial) build(L);
+  var i = -1;
+  while (i + 1 < L.length && L[i + 1][0] <= clock) i++;
+  if (i !== cur){
+    var kids = $("lines").children;
+    for (var k = 0; k < kids.length; k++){
+      kids[k].classList.toggle("past", k < i);
+      kids[k].classList.toggle("now", k === i);
+    }
+    cur = i;
+    scrollTo(i);
+  }
+  glide();
+  if (i >= 0){
+    var end = i + 1 < L.length ? L[i + 1][0] : L[i][0] + 4;
+    var p = Math.max(0, Math.min(1, (clock - L[i][0]) / Math.max(0.3, end - L[i][0])));
+    $("lines").children[i].style.setProperty("--p", (p * 100).toFixed(1) + "%");
+  }
+}
+
+var idle;
+document.addEventListener("mousemove", function(){ document.body.classList.remove("idle"); clearTimeout(idle);
+  idle = setTimeout(function(){ document.body.classList.add("idle"); }, 3000); });
+window.addEventListener("resize", function(){ cur = -2; });
+poll();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

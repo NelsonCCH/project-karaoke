@@ -1,0 +1,12 @@
+.venv/
+models/
+__pycache__/
+.pytest_cache/
+models.json
+*.wav
+*.flac
+*.mp3
+settings.json
+agent.log
+mac/results.txt
+docs/mic-research.md

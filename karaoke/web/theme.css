@@ -1,0 +1,38 @@
+/* House colour schemes (same palettes as Project Baby / Project French). Each scheme overrides only the
+   brand/neutral layer; semantic colours stay fixed so a warning always reads as a warning. :root = Warm Paper. */
+:root{
+  --paper:#f6f3ec; --card:#fffdf8; --ink:#2a2620; --muted:#6f6759;
+  --line:#e3dccd; --accent:#8c5a3a; --accent-soft:#f3e7dc;
+  --danger:#b23a3f; --warn:#c06514; --ok:#2e7d4f;
+}
+:root[data-scheme="sage"]{--paper:#eef3ee;--card:#fbfdf9;--ink:#232a25;--muted:#616b62;--line:#d9e4da;--accent:#4a7c5d;--accent-soft:#e6efe6}
+:root[data-scheme="blue"]{--paper:#eff3f6;--card:#fbfcfe;--ink:#222932;--muted:#5e6a76;--line:#d8e1e9;--accent:#3d6c8a;--accent-soft:#e4edf3}
+:root[data-scheme="blush"]{--paper:#f7f1f3;--card:#fffbfc;--ink:#2c252a;--muted:#6e5f68;--line:#ebdae0;--accent:#9a5570;--accent-soft:#f3e4ea}
+:root[data-scheme="slate"]{--paper:#f4f5f6;--card:#ffffff;--ink:#1f2328;--muted:#616872;--line:#e1e4e7;--accent:#2f6d6a;--accent-soft:#e4efee}
+:root[data-scheme="creme"]{--paper:#f5f3ee;--card:#ffffff;--ink:#1d2433;--muted:#67707f;--line:#e3e0d8;--accent:#2f4bd7;--accent-soft:#eef1f6}
+:root[data-scheme="cafe"]{--paper:#f4ecdf;--card:#fffcf5;--ink:#33261a;--muted:#7d6a55;--line:#e2d3bc;--accent:#7c4a1e;--accent-soft:#efe4d2}
+:root[data-scheme="menthe"]{--paper:#edf4f0;--card:#ffffff;--ink:#14342c;--muted:#5b7a70;--line:#d3e3db;--accent:#0f766e;--accent-soft:#e0ede7}
+:root[data-scheme="nuit"]{--paper:#14161c;--card:#1e222b;--ink:#e8eaf0;--muted:#9aa3b2;--line:#313745;--accent:#7a90ff;--accent-soft:#262b36}
+:root[data-scheme="ocean"]{--paper:#0c1524;--card:#16233a;--ink:#dde7f5;--muted:#8fa3c0;--line:#263a5c;--accent:#4f9fe0;--accent-soft:#1e2e4a}
+:root[data-scheme="bordeaux"]{--paper:#1b1216;--card:#291b21;--ink:#f2e7ea;--muted:#b498a2;--line:#453039;--accent:#c05572;--accent-soft:#352430}
+:root[data-scheme="nuit"],:root[data-scheme="ocean"],:root[data-scheme="bordeaux"]{--danger:#e8555a;--warn:#e0913f;--ok:#57c07d}
+
+.theme{position:relative;flex-shrink:0}
+.theme>summary{list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:999px;background:var(--card);
+  font-size:1rem;line-height:1;padding:.34rem .52rem;user-select:none}
+.theme>summary::-webkit-details-marker{display:none}
+.theme>summary::marker{content:""}
+.theme[open]>summary{border-color:var(--accent)}
+.theme-menu{position:absolute;right:0;top:calc(100% + .4rem);z-index:30;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);padding:.35rem;min-width:15rem;max-height:min(78vh,32rem);overflow-y:auto}
+.theme-group{font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .55rem .15rem}
+.theme-menu button{display:flex;align-items:center;gap:.55rem;width:100%;border:0;background:none;font:inherit;color:var(--ink);
+  text-align:left;padding:.4rem .55rem;border-radius:8px;cursor:pointer}
+.theme-menu button:hover,.theme-menu button.on{background:var(--accent-soft)}
+.theme-menu button.on .sw-name{font-weight:600}
+.theme-menu button.on::after{content:"\2713";margin-left:.2rem;color:var(--accent);font-weight:700}
+.sw-name{font-size:.86rem}
+.sw-sub{font-size:.72rem;color:var(--muted);margin-left:auto}
+.sw-dots{display:inline-flex;flex-shrink:0}
+.sw-dots i{width:15px;height:15px;border-radius:50%;display:block;margin-left:-4px;border:1px solid rgba(0,0,0,.15)}
+.sw-dots i:first-child{margin-left:0}
