@@ -37,7 +37,7 @@ def test_state_pages_and_live_set(agent):
     s = json.loads(body)
     assert s["active"] is False and s["position"] is None
     assert s["settings"]["delay"] in s["options"]["delay"]
-    for path in ("/", "/tv", "/theme.js", "/theme.css"):
+    for path in ("/", "/tv", "/theme.js", "/theme.css", "/i18n.js"):
         ctype, body = call(agent, path)
         assert len(body) > 500 and ctype.startswith("text/")
     call(agent, "/set", {"vocal": 140, "key": 3, "lyrics_offset": -300, "bogus": 1})

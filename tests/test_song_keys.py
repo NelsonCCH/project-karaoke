@@ -1,5 +1,6 @@
-"""The key is remembered per song: a song comes back at the key it was last sung in, a new song starts at 0, and the
-switch happens when the new song is heard, not when Spotify starts it seconds earlier."""
+"""The key and the vocal are remembered per song: a song comes back at the key and vocal it was last sung with, a new
+song starts at 0 and the default vocal, and the switch happens when the new song is heard, not when Spotify starts
+it seconds earlier."""
 
 import threading
 import time
@@ -10,7 +11,7 @@ from karaoke.engine import SR
 from karaoke.eq import DEFAULT_EQ, Equalizer
 from karaoke.keyshift import KeyShifter
 from karaoke.pipeline import Pipeline, SampleBuffer
-from karaoke.session import Session
+from karaoke.session import DEFAULT_VOCAL, Session
 
 import test_transport as T
 
@@ -32,8 +33,8 @@ class Pipe:
 
 def session():
     s = Session.__new__(Session)
-    s.settings = {"key": 0}
-    s.song_keys = {}
+    s.settings = {"key": 0, "vocal": DEFAULT_VOCAL}
+    s.song_keys, s.song_vocals = {}, {}
     s.watcher = Watcher()
     s.pipe = Pipe()
     return s
@@ -42,26 +43,37 @@ def session():
 def test_a_song_comes_back_at_its_key_and_new_songs_start_at_zero():
     s = session()
     s.pipe.heard_serial = 1
-    s._remember_key(-1)
-    assert s._on_track(2) == 0 and s.settings["key"] == 0
-    assert s._on_track(1) == -1 and s.settings["key"] == -1
-    assert s._on_track(3) == -1             # the same song played again from another list: same title and artist
+    s._remember("key", -1)
+    assert s._on_track(2) == (0, DEFAULT_VOCAL / 100) and s.settings["key"] == 0
+    assert s._on_track(1)[0] == -1 and s.settings["key"] == -1
+    assert s._on_track(3)[0] == -1          # the same song played again from another list: same title and artist
 
 
 def test_back_to_zero_forgets_the_song():
     s = session()
     s.pipe.heard_serial = 1
-    s._remember_key(2)
-    s._remember_key(0)
-    assert s.song_keys == {}
+    s._remember("key", 2)
+    s._remember("key", 0)
+    s._remember("vocal", 40)
+    s._remember("vocal", DEFAULT_VOCAL)
+    assert s.song_keys == {} and s.song_vocals == {}
 
 
 def test_a_key_set_while_the_next_song_buffers_is_kept_for_it():
     s = session()
     s.pipe.heard_serial = None              # after a skip nothing is heard yet; Spotify is already on song 2
     s.watcher.serial = 2
-    s._remember_key(3)
-    assert s._on_track(2) == 3
+    s._remember("key", 3)
+    assert s._on_track(2)[0] == 3
+
+
+def test_a_song_comes_back_at_its_vocal_and_new_songs_start_at_the_default():
+    s = session()
+    s.pipe.heard_serial = 1
+    s._remember("vocal", 40)
+    assert s._on_track(2) == (0, DEFAULT_VOCAL / 100) and s.settings["vocal"] == DEFAULT_VOCAL
+    assert s._on_track(1) == (0, 0.4) and s.settings["vocal"] == 40
+    assert s._on_track(3)[1] == 0.4
 
 
 def mixer(on_track):
@@ -81,7 +93,7 @@ def test_the_mixer_switches_key_with_the_first_sample_of_the_new_song():
 
     def on_track(serial):
         seen.append((serial, p.stems.size))
-        return {1: -1, 2: 2}[serial]
+        return {1: (-1, 0.1), 2: (2, 0.4)}[serial]
 
     p = mixer(on_track)
     x = np.zeros((SR // 2, 2), np.float32)
@@ -95,5 +107,5 @@ def test_the_mixer_switches_key_with_the_first_sample_of_the_new_song():
         time.sleep(0.01)
     p.running = False
     loop.join(2)
-    assert [t for t, _ in seen] == [1, 2] and p.semitones == 2
+    assert [t for t, _ in seen] == [1, 2] and p.semitones == 2 and p.vocal_level == 0.4
     assert seen[1][1] < SR // 2             # song 2 got its key only once song 1 had been mixed

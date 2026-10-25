@@ -28,6 +28,7 @@ from .winvol import default_playback_name
 
 SETTINGS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "settings.json")
 ENGINE_LOCK_PORT = 8766     # held while an engine runs, so the window and the agent never run one each
+DEFAULT_VOCAL = 10          # % of the original singer kept; songs never changed play at this
 LIVE = ("vocal", "volume", "key", "lyrics_offset", "eq", "mic", "echo", "mic_device", "voice", "reverb_size",
         "delay_level", "delay_ms", "delay_repeat", "gate", "comp")     # mic / echo also reach the Mac player
 RESTART = ("model", "delay", "speakers")
@@ -69,7 +70,7 @@ class Session:
             "model": saved.get("model") if saved.get("model") in MODELS else DEFAULT_MODEL,
             "delay": saved.get("delay") if saved.get("delay") in WINDOWS else DEFAULT_WINDOW,
             "speakers": saved.get("speakers"),
-            "vocal": saved.get("vocal", 10), "volume": saved.get("volume", 100),
+            "vocal": DEFAULT_VOCAL, "volume": saved.get("volume", 100),
             "key": 0, "lyrics_offset": saved.get("lyrics_offset", LYRICS_OFFSET),
             "eq": saved.get("eq") if saved.get("eq") in PRESETS else DEFAULT_EQ,
             "mic": 0, "echo": saved.get("echo", 30),    # mic starts muted every session: no surprise feedback
@@ -82,8 +83,10 @@ class Session:
             "gate": saved.get("gate", True), "comp": saved.get("comp", True),
         }
         self.mic_error = ""
-        # song_id -> semitones, for every song whose key was changed: it comes back with the song, others play at 0
+        # song_id -> semitones / vocal %, for every song whose key or vocal was changed: it comes back with the
+        # song; others play at key 0 and DEFAULT_VOCAL
         self.song_keys = saved.get("song_keys") if isinstance(saved.get("song_keys"), dict) else {}
+        self.song_vocals = saved.get("song_vocals") if isinstance(saved.get("song_vocals"), dict) else {}
         self.output = "pc"          # "pc" = the PC's speakers, "mac" = streamed to the living-room Mac
         self.sink = NetSink()
         self.pipe = None
@@ -247,8 +250,9 @@ class Session:
             return
         changed = {k for k, v in kw.items() if self.settings[k] != v}
         self.settings.update(kw)
-        if "key" in kw:
-            self._remember_key(kw["key"])
+        for k in ("key", "vocal"):
+            if k in kw:
+                self._remember(k, kw[k])
         if changed & set(RESTART):
             self.restart()
         else:
@@ -316,9 +320,9 @@ class Session:
     def save(self):
         s = self.settings
         save_settings({**{k: (round(s[k]) if k in ("vocal", "volume", "echo") else s[k]) for k in s
-                          if k not in ("key", "mic")}, "song_keys": self.song_keys})
+                          if k not in ("key", "vocal", "mic")}, "song_keys": self.song_keys, "song_vocals": self.song_vocals})
 
-    # ---- key per song ----------------------------------------------------------------------------------------
+    # ---- key and vocal per song ----------------------------------------------------------------------------------------
 
     @staticmethod
     def song_id(info):
@@ -328,26 +332,29 @@ class Session:
         return f"{(info.get('artist') or '').strip().lower()} - {info['title'].strip().lower()}"
 
     def _key_song(self):
-        """The song a key change is meant for: the one being heard, or, while nothing is heard yet (the wait
+        """The song a key or vocal change is meant for: the one being heard, or, while nothing is heard yet (the wait
         after a skip), the one Spotify is playing, which is the next one heard."""
         h = self.pipe.heard() if self.pipe else None
         serial = h[0] if h else self.watcher.serial
         return self.song_id(self.watcher.tracks.get(serial))
 
-    def _remember_key(self, key):
+    def _remember(self, field, value):
         sid = self._key_song()
         if sid is None:
             return
-        if key:
-            self.song_keys[sid] = key
+        store, default = (self.song_keys, 0) if field == "key" else (self.song_vocals, DEFAULT_VOCAL)
+        if round(value) != default:
+            store[sid] = round(value)
         else:
-            self.song_keys.pop(sid, None)
+            store.pop(sid, None)
 
     def _on_track(self, serial):
-        """Mixer thread, first sample of a new track: its saved key, or 0 for a song never shifted."""
-        key = self.song_keys.get(self.song_id(self.watcher.tracks.get(serial)), 0)
-        self.settings["key"] = key
-        return key
+        """Mixer thread, first sample of a new track: its saved key and vocal (0 and DEFAULT_VOCAL for a song never
+        changed), as (semitones, vocal level 0-1)."""
+        sid = self.song_id(self.watcher.tracks.get(serial))
+        key, vocal = self.song_keys.get(sid, 0), self.song_vocals.get(sid, DEFAULT_VOCAL)
+        self.settings["key"], self.settings["vocal"] = key, vocal
+        return key, vocal / 100
 
     # ---- Spotify ---------------------------------------------------------------------------------------------
 

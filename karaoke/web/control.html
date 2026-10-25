@@ -87,7 +87,8 @@ kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1p
     <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><rect x="12" y="6" width="8" height="13" rx="4" fill="#fff"/><path d="M9 15a7 7 0 0 0 14 0M16 22v4M12 26h8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
     <h1>Karaoke</h1>
   </div>
-  <span class="pill" id="pill"><i></i><span id="pilltext">…</span></span>
+  <span class="pill" id="pill"><i></i><span id="pilltext" data-noi18n>…</span></span>
+  <span class="lang-toggle" id="lang" role="group" aria-label="Language / 語言" data-noi18n><button data-lang="en">EN</button><button data-lang="zh">中文</button></span>
   <details class="theme" id="theme">
     <summary title="Colour scheme" aria-label="Colour scheme">&#127912;</summary>
     <div class="theme-menu" id="thememenu" role="menu"></div>
@@ -98,8 +99,8 @@ kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1p
     <div class="row" style="align-items:flex-start">
       <img id="cover" alt="" hidden>
       <div style="flex:1;min-width:0">
-        <div class="song" id="song">—</div>
-        <div class="artist" id="artist"></div>
+        <div class="song" id="song" data-noi18n>—</div>
+        <div class="artist" id="artist" data-noi18n></div>
       </div>
     </div>
     <div class="row progress">
@@ -114,9 +115,9 @@ kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1p
       <button data-t="next" aria-label="Next"><svg viewBox="0 0 24 24"><rect x="16.6" y="5" width="2.4" height="14" rx="1"/><path d="M5 5.8v12.4a.8.8 0 0 0 1.2.7l8.8-6.2a.8.8 0 0 0 0-1.4L6.2 5.1A.8.8 0 0 0 5 5.8z"/></svg></button>
       <span style="width:2.6rem;flex:none"></span>
     </div>
-    <div class="status" id="status">Connecting…</div>
+    <div class="status" id="status" data-noi18n>Connecting…</div>
     <div class="row actions">
-      <button class="primary" id="startstop">Start karaoke</button>
+      <button class="primary" id="startstop" data-noi18n>Start karaoke</button>
       <a href="/tv" target="_blank">Lyrics screen ↗</a>
     </div>
     <div class="hint" id="deskhint" hidden>Closing this window stops karaoke: Spotify pauses and goes back to your speakers.</div>
@@ -126,13 +127,14 @@ kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1p
     <div class="label">Original vocal</div>
     <div class="row"><input type="range" id="vocal" min="0" max="100" step="1"><span class="pct" id="vocalv"></span></div>
     <div class="chips"><button data-vocal="0">Off</button><button data-vocal="10">10%</button><button data-vocal="40">Guide 40%</button><button data-vocal="100">Original</button></div>
+    <div class="hint">Remembered for each song, like the key. New songs start at 10%.</div>
   </section>
 
   <section class="card">
     <div class="label">Key</div>
     <div class="row">
       <button class="big" id="keydown">−</button><span class="value" id="keyv">0</span><button class="big" id="keyup">+</button>
-      <span class="keysub" id="keysub"></span>
+      <span class="keysub" id="keysub" data-noi18n></span>
       <button id="keyreset" style="margin-left:auto">Reset</button>
     </div>
     <div class="hint">Remembered for each song: it comes back the next time that song plays. New songs start at 0.</div>
@@ -145,21 +147,21 @@ kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1p
 
   <section class="card">
     <div class="label">Sound</div>
-    <div class="chips wrap" id="eq"></div>
+    <div class="chips wrap" id="eq" data-noi18n></div>
     <div class="hint">Changes at once: try them on a song you know. Bass presets never make it louder, so compare by ear.</div>
   </section>
 
   <section class="card" id="miccard">
-    <div class="label" id="miclabel">Microphone</div>
+    <div class="label" id="miclabel" data-noi18n>Microphone</div>
     <select id="micdev" aria-label="Microphone"></select>
     <div id="micon">
       <div class="row"><input type="range" id="mic" min="0" max="100" step="1" aria-label="Mic level"><span class="pct" id="micv"></span></div>
       <div class="meter" id="meterwrap" title="Mic input level"><i id="meter"></i></div>
-      <div class="hint" id="michint"></div>
+      <div class="hint" id="michint" data-noi18n></div>
       <div class="label" style="margin-top:12px">Reverb</div>
       <div class="row"><input type="range" id="echo" min="0" max="100" step="1" aria-label="Reverb"><span class="pct" id="echov"></span></div>
       <div id="pcfx">
-        <div class="chips" id="rsize"></div>
+        <div class="chips" id="rsize" data-noi18n></div>
         <div class="label" style="margin-top:14px">Echo</div>
         <div class="row"><input type="range" id="delay_level" min="0" max="100" step="1" aria-label="Echo level"><span class="pct" id="delay_levelv"></span></div>
         <div class="sub">Time</div>
@@ -167,7 +169,7 @@ kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1p
         <div class="sub">Repeats</div>
         <div class="row"><input type="range" id="delay_repeat" min="0" max="100" step="1" aria-label="Echo repeats"><span class="pct" id="delay_repeatv"></span></div>
         <div class="label" style="margin-top:14px">Voice</div>
-        <div class="chips wrap" id="voice"></div>
+        <div class="chips wrap" id="voice" data-noi18n></div>
         <div class="chips" style="margin-top:10px">
           <button id="comp" title="Evens out loud and soft singing">Smooth</button>
           <button id="gate" title="Quiets the mic between phrases">Noise gate</button>
@@ -195,7 +197,7 @@ kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1p
         <div class="label">Model</div><select id="model"></select>
         <div class="hint" style="margin:-4px 0 10px">A model you have not used yet downloads first (size shown).</div>
         <div class="label">Speakers or headphones</div><select id="speakers"></select>
-        <div class="hint" id="stats"></div>
+        <div class="hint" id="stats" data-noi18n></div>
       </div>
     </details>
   </section>
@@ -209,13 +211,15 @@ kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1p
       <span><kbd>0</kbd></span><span>Back to the original key</span>
     </div>
     <div class="label" style="margin-top:14px">Phone remote</div>
-    <div class="hint" style="margin-top:0">On a phone on the same Wi-Fi, open <span class="url" id="phoneurl"></span>
+    <div class="hint" style="margin-top:0">On a phone on the same Wi-Fi, open <span class="url" id="phoneurl" data-noi18n></span>
       or scan the code on the lyrics screen.</div>
   </section>
 </main>
+<script src="/i18n.js"></script>
 <script src="/theme.js"></script>
 <script>
 initTheme("pk_scheme", "paper");
+initLang(function(){ initTheme.rebuild(); render(); });
 var $ = function(id){ return document.getElementById(id); };
 var S = null, touched = {};       // field -> time of the last local change, so polling doesn't fight a drag
 
@@ -238,10 +242,11 @@ var ICONS = {
 function fresh(field){ return !touched[field] || Date.now() - touched[field] > 1500; }
 function clock(s){ s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
 
+function Tm(s){ var i = s.lastIndexOf(" · "); return i < 0 ? T(s) : T(s.slice(0, i)) + s.slice(i); }
 function fill(sel, items, current){
-  var key = JSON.stringify(items);
+  var key = LANG + JSON.stringify(items);
   if (sel.dataset.k !== key){
-    sel.innerHTML = items.map(function(it){ return '<option value="' + it[0] + '">' + it[1] + '</option>'; }).join("");
+    sel.innerHTML = items.map(function(it){ return '<option value="' + it[0] + '">' + Tm(it[1]) + '</option>'; }).join("");
     sel.dataset.k = key;
   }
   if (document.activeElement !== sel) sel.value = current;
@@ -253,7 +258,7 @@ function render(){
   // While karaoke runs, show the song being heard (after a skip it is still the old one for the delay).
   var sp = S.spotify, heard = S.active && S.track;
   var t = heard ? S.track : sp;
-  $("song").textContent = t.title || "Nothing playing on Spotify";
+  $("song").textContent = t.title || T("Nothing playing on Spotify");
   $("artist").textContent = t.artist || "";
   var serial = heard ? S.track.serial : sp.serial;
   if (serial && $("cover").dataset.serial !== String(serial)){
@@ -269,14 +274,14 @@ function render(){
   $("seek").disabled = !dur || !seekable;
   $("shuffle").classList.toggle("on", sp.shuffle);
   var msg, bad = /fail|could not|another|not found|no speakers/i.test(S.status || "");
-  if (!S.active) msg = bad ? S.status : "Karaoke is off. Spotify plays normally on the PC.";
-  else if (S.warning) { msg = S.warning; bad = true; }
-  else if (bad) msg = S.status;
-  else if (!S.ready) msg = S.status || "Loading the model…";
-  else if (!S.spotify_open) msg = "Waiting for Spotify: open the Spotify app on this PC and play a song.";
-  else if (S.playing) msg = "Playing. What you hear is " + Math.round(S.latency) + " s behind Spotify.";
-  else if (!S.spotify_playing) msg = "Paused. Press play here or in Spotify.";
-  else msg = "Getting ready: the song starts in about " + Math.round(S.latency) + " s.";
+  if (!S.active) msg = bad ? T(S.status) : T("Karaoke is off. Spotify plays normally on the PC.");
+  else if (S.warning) { msg = T(S.warning); bad = true; }
+  else if (bad) msg = T(S.status);
+  else if (!S.ready) msg = T(S.status || "Loading the model…");
+  else if (!S.spotify_open) msg = T("Waiting for Spotify: open the Spotify app on this PC and play a song.");
+  else if (S.playing) msg = T("Playing. What you hear is {n} s behind Spotify.", Math.round(S.latency));
+  else if (!S.spotify_playing) msg = T("Paused. Press play here or in Spotify.");
+  else msg = T("Getting ready: the song starts in about {n} s.", Math.round(S.latency));
   $("status").textContent = msg;
   $("status").className = "status" + (bad ? " warn" : "");
   // The short version of the same, top right.
@@ -284,16 +289,16 @@ function render(){
     : S.playing ? ["ok", "Karaoke on"]
     : !S.spotify_playing || !S.spotify_open ? ["", "Paused"] : ["busy", "Getting ready"];
   $("pill").className = "pill " + pill[0];
-  $("pilltext").textContent = pill[1];
+  $("pilltext").textContent = T(pill[1]);
   if (DESK) $("phoneurl").textContent = S.phone_url || "";
   if ($("pp").dataset.p !== String(S.spotify_playing)){
     $("pp").dataset.p = S.spotify_playing;
     $("pp").innerHTML = S.spotify_playing ? ICONS.pause : ICONS.play;
   }
-  $("startstop").textContent = S.active ? "Stop karaoke" : "Start karaoke";
+  $("startstop").textContent = T(S.active ? "Stop karaoke" : "Start karaoke");
   $("startstop").className = S.active ? "stop" : "primary";
   document.querySelectorAll("[data-vocal]").forEach(function(b){ b.classList.toggle("on", Math.round(st.vocal) === +b.dataset.vocal); });
-  $("keysub").textContent = st.key === 0 ? "original key" : Math.abs(st.key) === 1 ? "semitone" : "semitones";
+  $("keysub").textContent = T(st.key === 0 ? "original key" : Math.abs(st.key) === 1 ? "semitone" : "semitones");
   if (fresh("vocal")) $("vocal").value = st.vocal;
   if (fresh("volume")) $("volume").value = st.volume;
   renderMic(st);
@@ -302,9 +307,9 @@ function render(){
   $("keyv").textContent = st.key > 0 ? "+" + st.key : String(st.key);
   $("offv").textContent = (st.lyrics_offset / 1000).toFixed(1) + " s";
   var o = S.options;
-  if (o.eq && $("eq").dataset.k !== o.eq.join("|")){
-    $("eq").dataset.k = o.eq.join("|");
-    $("eq").innerHTML = o.eq.map(function(n){ return '<button data-eq="' + n + '">' + n + '</button>'; }).join("");
+  if (o.eq && $("eq").dataset.k !== LANG + o.eq.join("|")){
+    $("eq").dataset.k = LANG + o.eq.join("|");
+    $("eq").innerHTML = o.eq.map(function(n){ return '<button data-eq="' + n + '">' + T(n) + '</button>'; }).join("");
     $("eq").querySelectorAll("button").forEach(function(b){ b.onclick = function(){ set("eq", b.dataset.eq); }; });
   }
   $("eq").querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.eq === st.eq); });
@@ -312,22 +317,22 @@ function render(){
   fill($("model"), Object.keys(o.model).map(function(k){ return [k, o.model[k]]; }), st.model);
   fill($("speakers"), o.speakers.map(function(n){ return [n, n]; }), st.speakers);
   var x = S.stats;
-  $("stats").textContent = x ? "GPU " + Math.round(x.gpu_load * 100) + "% · underruns " + x.underruns + " · drift skips " + x.dropped : "";
+  $("stats").textContent = x ? T("GPU {n}% · underruns {u} · drift skips {d}", Math.round(x.gpu_load * 100), {u: x.underruns, d: x.dropped}) : "";
 }
 
 // The microphone card. On the Mac route the Mac mixes the mic (level and reverb only); otherwise the PC does,
 // with the mic picked here and the full chain (karaoke/mic.py).
 function chips(el, names, current, field){
-  if (el.dataset.k !== names.join("|")){
-    el.dataset.k = names.join("|");
-    el.innerHTML = names.map(function(n){ return '<button data-v="' + n + '">' + n + '</button>'; }).join("");
+  if (el.dataset.k !== LANG + names.join("|")){
+    el.dataset.k = LANG + names.join("|");
+    el.innerHTML = names.map(function(n){ return '<button data-v="' + n + '">' + T(n) + '</button>'; }).join("");
     el.querySelectorAll("button").forEach(function(b){ b.onclick = function(){ set(field, b.dataset.v); }; });
   }
   el.querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.v === current); });
 }
 function renderMic(st){
   var mac = !!S.player, m = S.mic || {}, o = S.options;
-  $("miclabel").textContent = mac ? "Microphone (on the Mac)" : "Microphone";
+  $("miclabel").textContent = T(mac ? "Microphone (on the Mac)" : "Microphone");
   $("micdev").hidden = mac;
   if (!mac) fill($("micdev"), [["", "Off: no microphone on this PC"]].concat((o.mic_devices || []).map(function(n){ return [n, n]; })), st.mic_device);
   $("micon").hidden = !mac && !st.mic_device;
@@ -344,11 +349,11 @@ function renderMic(st){
   var pk = m.peak || 0, hot = pk > 0.9;
   $("meter").style.width = Math.min(100, pk > 0 ? Math.max(0, 100 + 20 * Math.log10(pk) * 100 / 60) : 0) + "%";
   $("meter").className = hot ? "hot" : "";
-  var hint = "The level starts at 0 each time, so it never squeals: raise it slowly, pointing the mic away from the speakers.";
-  if (mac) hint = "The level starts at 0 each time so it never squeals. Through the Mac's speakers, keep it low.";
-  else if (m.error) hint = m.error;
-  else if (hot) hint = "The mic is too loud at its input (the bar turns orange): lower its level in Windows, Settings > System > Sound > Input, then use this slider.";
-  else if (m.on && m.latency_ms) hint = "About " + m.latency_ms + " ms from the mic to the speakers. " + hint;
+  var hint = T("The level starts at 0 each time, so it never squeals: raise it slowly, pointing the mic away from the speakers.");
+  if (mac) hint = T("The level starts at 0 each time so it never squeals. Through the Mac's speakers, keep it low.");
+  else if (m.error) hint = T(m.error);
+  else if (hot) hint = T("The mic is too loud at its input (the bar turns orange): lower its level in Windows, Settings > System > Sound > Input, then use this slider.");
+  else if (m.on && m.latency_ms) hint = T("About {n} ms from the mic to the speakers.", m.latency_ms) + " " + hint;
   $("michint").textContent = hint;
   $("michint").className = "hint" + (m.error || hot ? " warn" : "");
 }
@@ -361,7 +366,7 @@ function poll(){
             "delay_level", "delay_ms", "delay_repeat", "gate", "comp"].forEach(function(f){ if (!fresh(f)) s.settings[f] = S.settings[f]; });
     S = s; render();
     if (DESK && !autostarted){ autostarted = true; if (!s.active) post("/start", {output: "pc", desk: true}); }
-  }).catch(function(){ $("pill").className = "pill warn"; $("pilltext").textContent = "Not connected"; $("status").textContent =DESK ? "Project Karaoke has stopped. Close this window and open it again from the desktop icon." : "Can't reach the PC — is it on?"; })
+  }).catch(function(){ $("pill").className = "pill warn"; $("pilltext").textContent = T("Not connected"); $("status").textContent = T(DESK ? "Project Karaoke has stopped. Close this window and open it again from the desktop icon." : "Can't reach the PC — is it on?"); })
     .finally(function(){ setTimeout(poll, 500); });
 }
 if (DESK){

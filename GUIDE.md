@@ -50,11 +50,13 @@ bar and the karaoke's are 4.5 s apart; the karaoke window and lyrics show what y
 
 ## The controls
 
-The window, the phone page and the keyboard all do the same things.
+The window, the phone page and the keyboard all do the same things. **EN / 中文** at the top switches the window,
+the phone page and the lyrics screen between English and Traditional Chinese; each browser remembers its choice,
+and a phone set to Chinese starts in Chinese.
 
 | Control | What it does |
 |---|---|
-| **Original vocal** | How much of the original singer to keep. **Off** = pure karaoke. **10%** (default) = a trace that fills the music out without getting in the way. **Guide 40%** = clearly audible, to learn a song. **Original** = the untouched song. |
+| **Original vocal** | How much of the original singer to keep. **Off** = pure karaoke. **10%** (default) = a trace that fills the music out without getting in the way. **Guide 40%** = clearly audible, to learn a song. **Original** = the untouched song. **Remembered per song**, like the key: new songs start at 10%. The lyrics screen shows it at the top ("Vocal 10%"). |
 | **Key** | Up or down in semitones, same tempo. **Remembered per song**: set a song to −2 once and it comes back at −2 next time; songs you never changed play at 0. While a song is off its original key, the lyrics screen shows "Key −2" at the top. |
 | **Volume** | A trim on top of the Windows volume, which stays the main volume (your keyboard's volume keys). |
 | **Sound** | EQ presets: Flat, Less bass, More bass, Clear, Warm, Party, *Room for your voice* (dips where a singer sits, so yours cuts through), Small speakers, Late night. They change at once and never make it louder. |

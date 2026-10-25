@@ -111,8 +111,8 @@ class Pipeline:
     def __init__(self, model_key, in_dev, out_dev, on_status=None, chunk_seconds=None, clock=None, sink=None,
                  on_track=None):
         self.model_key = model_key
-        # on_track(serial) -> semitones, called when the first sample of a new track reaches the mixer, so a song's
-        # saved key starts exactly with that song and the end of the last one keeps its own.
+        # on_track(serial) -> (semitones, vocal level), called when the first sample of a new track reaches the mixer, so
+        # a song's saved key and vocal start exactly with that song and the end of the last one keeps its own.
         self.on_track = on_track
         self.mix_track = None
         self.mic = None             # mic.Mic, added to the speakers in _out_cb; the session opens and closes it
@@ -401,7 +401,7 @@ class Pipeline:
             if track != self.mix_track:
                 self.mix_track = track
                 if self.on_track:
-                    self.semitones = self.on_track(track)
+                    self.semitones, self.vocal_level = self.on_track(track)
             y = s[:, :2] + self.vocal_level * s[:, 2:4]
             # Hard ceiling at full scale: separation residue or the key shift must never produce a burst.
             self.eq.set(self.eq_preset)

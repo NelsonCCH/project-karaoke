@@ -44,7 +44,7 @@ WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOG = os.path.join(ROOT, "agent.log")
 PAGES = {"/": ("control.html", "text/html"), "/tv": ("tv.html", "text/html"),
-         "/theme.css": ("theme.css", "text/css"), "/theme.js": ("theme.js", "text/javascript"), "/qr.js": ("qr.js", "text/javascript")}
+         "/theme.css": ("theme.css", "text/css"), "/theme.js": ("theme.js", "text/javascript"), "/i18n.js": ("i18n.js", "text/javascript"), "/qr.js": ("qr.js", "text/javascript")}
 
 
 def phone_url(conn):

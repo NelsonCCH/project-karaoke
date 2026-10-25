@@ -36,3 +36,7 @@
 .sw-dots{display:inline-flex;flex-shrink:0}
 .sw-dots i{width:15px;height:15px;border-radius:50%;display:block;margin-left:-4px;border:1px solid rgba(0,0,0,.15)}
 .sw-dots i:first-child{margin-left:0}
+/* EN / 中文 switch, the house pattern from Project Baby. */
+.lang-toggle{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--card);flex:none}
+.lang-toggle button{border:0;border-radius:0;background:none;font:inherit;font-size:.8rem;padding:.25rem .7rem;cursor:pointer;color:var(--muted)}
+.lang-toggle button.on{background:var(--accent);color:#fff;font-weight:600}

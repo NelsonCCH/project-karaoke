@@ -21,8 +21,8 @@ body{margin:0;background:var(--bg);color:var(--sung);overflow:hidden;
   background:var(--bg);box-shadow:0 14px 18px -6px var(--bg)}
 .track{flex:1;font-size:clamp(14px,1.6vw,24px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sung);opacity:.85}
 .track b{font-weight:700}
-.top .theme{opacity:.3;transition:opacity .3s}
-.top:hover .theme,.top .theme[open]{opacity:1}
+.top .theme,.top .lang-toggle{opacity:.3;transition:opacity .3s}
+.top:hover .theme,.top .theme[open],.top:hover .lang-toggle{opacity:1}
 #viewport{position:absolute;inset:0;overflow:hidden}
 #lines{position:absolute;left:0;right:0;top:0;padding:0 6vw;will-change:transform}
 .line{font-size:clamp(24px,min(4.2vw,7vh),84px);font-weight:700;line-height:1.25;margin:0 0 .5em;color:var(--todo);
@@ -32,7 +32,7 @@ body{margin:0;background:var(--bg);color:var(--sung);overflow:hidden;
   mask-image:linear-gradient(to bottom,transparent 7%,#000 17%,#000 82%,transparent)}
 .bar{position:fixed;left:0;top:0;height:4px;width:0;background:var(--fill);opacity:.7;z-index:7}
 .times{font-size:clamp(12px,1.2vw,20px);font-variant-numeric:tabular-nums;opacity:.7;white-space:nowrap}
-/* The singer's key at a glance: only shown when it is not the original. */
+/* The vocal kept, and the singer's key when it is not the original, at a glance. */
 .keypill{font-size:clamp(12px,1.2vw,20px);font-weight:700;white-space:nowrap;padding:.15em .7em;border-radius:99px;
   background:var(--card);border:1px solid var(--line);color:var(--sung)}
 :root[data-scheme="song"] .keypill{background:rgba(0,0,0,.28);border-color:transparent}
@@ -56,22 +56,27 @@ body.idle{cursor:none}
 <body>
 <div class="bar" id="bar"></div>
 <div class="top">
-  <div class="track" id="track"></div>
-  <div class="keypill" id="keypill" hidden></div>
-  <div class="times" id="times"></div>
+  <div class="track" id="track" data-noi18n></div>
+  <div class="keypill" id="vocalpill" data-noi18n hidden></div>
+  <div class="keypill" id="keypill" data-noi18n hidden></div>
+  <div class="times" id="times" data-noi18n></div>
+  <span class="lang-toggle" id="lang" role="group" aria-label="Language / 語言" data-noi18n><button data-lang="en">EN</button><button data-lang="zh">中文</button></span>
   <details class="theme" id="theme">
     <summary title="Colour scheme" aria-label="Colour scheme">&#127912;</summary>
     <div class="theme-menu" id="thememenu" role="menu"></div>
   </details>
 </div>
 <div id="viewport"><div id="lines"></div></div>
-<div class="msg" id="msg">Connecting to the PC…</div>
+<div class="msg" id="msg" data-noi18n></div>
 <div class="qr" id="qr" hidden><div class="code" id="qrcode"></div><span>Scan to control</span></div>
+<script src="/i18n.js"></script>
 <script src="/theme.js"></script>
 <script src="/qr.js"></script>
 <script>
 initTheme("pk_tv_scheme", "song", "nuit",
   [{ id:"song", name:"Song colour", sub:"like Spotify", group:"", dots:["#7d3c3c","#2f6b6b","#5b3f86"] }]);
+initLang(function(){ initTheme.rebuild(); $("msg").dataset.h = ""; });
+document.getElementById("msg").textContent = T("Connecting to the PC…");
 var $ = function(id){ return document.getElementById(id); };
 var state = null, base = null, lyr = null, lyrSerial = null, built = null, cur = -2, clock = null;
 
@@ -101,9 +106,11 @@ function poll(){
       if (s.track) document.documentElement.style.setProperty("--song", songColour(s.track));
     }
     $("track").innerHTML = s.track ? "<b>" + esc(s.track.title) + "</b> · " + esc(s.track.artist) : "";
+    $("vocalpill").hidden = !(s.active && s.track);
+    $("vocalpill").textContent = T("Vocal {n}%", Math.round(s.settings.vocal));
     var k = s.active && s.track ? s.settings.key : 0;
     $("keypill").hidden = !k;
-    $("keypill").textContent = "Key " + (k > 0 ? "+" + k : "−" + Math.abs(k));
+    $("keypill").textContent = T(k > 0 ? "Key +{n}" : "Key −{n}", Math.abs(k));
     if (s.phone_url && $("qr").dataset.url !== s.phone_url){
       $("qr").dataset.url = s.phone_url;
       $("qrcode").innerHTML = qrSvg(s.phone_url);
@@ -153,19 +160,20 @@ function glide(){
 
 function frame(){
   requestAnimationFrame(frame);
-  if (!state) return message("Can't reach the PC — is it on?");
-  if (!state.active) return message("Karaoke is off.<small>Scan the code to start it from your phone, or open "
-    + esc(state.phone_url || location.host) + "</small>");
-  if (!state.ready) return message(esc(state.status || "Loading…"));
+  if (!state) return message(esc(T("Can't reach the PC — is it on?")));
+  if (!state.active) return message(esc(T("Karaoke is off.")) + "<small>"
+    + esc(T("Scan the code to start it from your phone, or open {n}", state.phone_url || location.host)) + "</small>");
+  if (!state.ready) return message(esc(T(state.status || "Loading…")));
   var t = target();
-  if (t == null) return message("Play a song on Spotify.");
+  if (t == null) return message(esc(T("Play a song on Spotify.")));
   clock = (clock == null || Math.abs(t - clock) > 0.4) ? t : clock + (t - clock) * 0.15;
   var dur = state.track && state.track.duration;
   $("bar").style.width = dur ? Math.min(100, clock / dur * 100).toFixed(2) + "%" : "0";
   $("times").textContent = dur ? mmss(clock) + " / " + mmss(dur) : "";
-  if (!lyr) return message("Finding lyrics…");
+  if (!lyr) return message(esc(T("Finding lyrics…")));
   var L = lyr.synced || [];
-  if (!L.length && !lyr.plain) return message("No lyrics found for this song.<small>The music plays on without the voice. Lyrics come from LRCLIB, a free community library.</small>");
+  if (!L.length && !lyr.plain) return message(esc(T("No lyrics found for this song.")) + "<small>"
+    + esc(T("The music plays on without the voice. Lyrics come from LRCLIB, a free community library.")) + "</small>");
   $("msg").hidden = true;
   $("viewport").hidden = false;
 

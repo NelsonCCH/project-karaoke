@@ -6,8 +6,9 @@ key shift, and synced lyrics. Everything runs locally on your own NVIDIA GPU.
 
 - **Vocal slider**: 0% = karaoke, 10% (the default) = a trace of the singer that fills the music out without
   getting in the way, 40% = a guide voice, 100% = the original song.
-- **Key shift** in semitones, without changing the tempo, **remembered per song**: a song comes back at the key
-  you last sang it in, and the lyrics screen shows "Key −2" while a song is shifted.
+- **Key shift** in semitones, without changing the tempo.
+- **Both remembered per song**: a song comes back at the vocal and key you last sang it with; new songs start at
+  10% and the original key. The lyrics screen shows "Vocal 10%", and "Key −2" while a song is shifted.
 - **Sound presets**: Flat, Less bass, More bass, Clear, Warm, Party, Room for your voice (dips the band a singer
   sits in, so yours cuts through), Small speakers, Late night. Live, click-free, and never louder than Flat
   (`karaoke/eq.py`).
@@ -16,6 +17,7 @@ key shift, and synced lyrics. Everything runs locally on your own NVIDIA GPU.
 - **Synced lyrics** in the browser (from LRCLIB), timed to what you actually hear, each line lit 0.5 s early so
   the singer sees it coming (adjustable).
 - **Phone remote**: scan a QR code to control the vocal, key, volume and Spotify's play / pause / next / previous.
+- **English or Traditional Chinese**: an EN / 中文 switch on the remote and the lyrics screen.
 - **The default model removes every voice, backing vocals too**: measured on 25 songs with a known instrumental
   it kept the music cleanest, 17.3 dB against 11.2-11.7 dB for the karaoke models (`tools/benchmark_models.py`).
   Karaoke models that keep the backing vocals are in the menu.

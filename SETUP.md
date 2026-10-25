@@ -142,8 +142,8 @@ means the helper did not start: the reason is at the end of `agent.log`.
 2. **Expect:** after about the delay, the song continues with the singer almost gone (the default keeps 10%).
    The window says "Playing".
 3. Press ↑ three times (40%): a clear guide voice. Press → twice: the key goes up two semitones and the tempo
-   stays the same. Skip to another song: it plays at key 0. Go back to the first song: it comes back at +2 (the
-   key is remembered per song). Press `0` to reset it.
+   stays the same. Skip to another song: it plays at 10% and key 0. Go back to the first song: it comes back at
+   40% and +2 (both are remembered per song). Press `0` to reset the key and `V` for 10%.
 4. Click **Lyrics screen**. **Expect:** the song's lyrics, the current line highlighted about half a second
    before it is sung. Songs without synced lyrics on LRCLIB show plain lyrics or "No lyrics found": a gap in
    the data, not a bug.
@@ -194,7 +194,7 @@ folder. README.md "Uninstall" lists the optional driver and firewall clean-up, w
 ## Where things are
 
 - `settings.json`: the user's saved choices (model, delay, speakers, vocal level, lyrics offset, sound preset,
-  the microphone and its effects, and `song_keys`: the key of every song they shifted). Delete it to reset. It is never committed.
+  the microphone and its effects, and `song_keys` / `song_vocals`: the key and vocal of every song they changed). Delete it to reset. It is never committed.
 - `models/`: downloaded model weights. `karaoke/models.py` lists the models and the delay settings.
 - `agent.log`: warnings and errors (the app has no console).
 - `docs/mac-route.md`: notes on the optional "play it in another room" setup. Not needed here.

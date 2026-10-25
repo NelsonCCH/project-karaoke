@@ -18,6 +18,7 @@ var SCHEMES = [
 var DARK_SCHEMES = { nuit:1, ocean:1, bordeaux:1 };
 
 function initTheme(key, dflt, darkDefault, extra){
+  var tr = typeof T === "function" ? T : function(s){ return s; };   // i18n.js, when the page loads it
   if (extra) SCHEMES = extra.concat(SCHEMES);
   var scheme = dflt;
   try { scheme = localStorage.getItem(key) || dflt; } catch (e) {}
@@ -35,19 +36,20 @@ function initTheme(key, dflt, darkDefault, extra){
     var m = document.getElementById("thememenu"), html = "", last = null;
     SCHEMES.forEach(function(sc){
       if (sc.group && sc.group !== last){
-        html += '<div class="theme-group">' + (sc.group === "dark" ? "Dark" : "Light") + '</div>';
+        html += '<div class="theme-group">' + tr(sc.group === "dark" ? "Dark" : "Light") + '</div>';
         last = sc.group;
       }
       var dots = sc.dots.map(function(c){ return '<i style="background:' + c + '"></i>'; }).join("");
       html += '<button type="button" role="menuitemradio" data-scheme="' + sc.id + '"'
         + (sc.id === scheme ? ' class="on" aria-checked="true"' : ' aria-checked="false"')
-        + '><span class="sw-dots">' + dots + '</span><span class="sw-name">' + sc.name
-        + '</span><span class="sw-sub">' + sc.sub + '</span></button>';
+        + '><span class="sw-dots">' + dots + '</span><span class="sw-name">' + tr(sc.name)
+        + '</span><span class="sw-sub">' + tr(sc.sub) + '</span></button>';
     });
     m.innerHTML = html;
   }
   apply(scheme);
   build();
+  initTheme.rebuild = build;
   document.getElementById("thememenu").addEventListener("click", function(ev){
     var b = ev.target.closest("button[data-scheme]");
     if (!b) return;
