@@ -83,3 +83,41 @@ def test_find_matches_chinese_artist_from_spotify_english_name():
         pytest.skip("LRCLIB unreachable or busy")
     assert len(res["synced"]) > 10
     assert "天下無雙" in res["source"]
+
+
+def wait(cache, track):
+    for _ in range(500):
+        res = cache.get(track)
+        if res is not None:
+            return res
+        L.time.sleep(0.01)
+
+
+def test_answers_are_kept_on_disk_for_later_sessions(monkeypatch, tmp_path):
+    asked = []
+    monkeypatch.setattr(L, "find", lambda *a: asked.append(a[0]) or {"synced": [(10.0, "right")], "plain": "right",
+                                                                      "source": "Tears - RubberBand"})
+    path, track = str(tmp_path / "lyrics_cache.json"), {"title": "Tears", "artist": "RubberBand", "duration": 295.9}
+    assert wait(L.LyricsCache(path), track)["source"] == "Tears - RubberBand"
+    again = wait(L.LyricsCache(path), track)        # a new session: straight from the file
+    assert again["synced"] == [[10.0, "right"]] and asked == ["Tears"]
+
+
+def test_no_lyrics_is_asked_again_after_a_week(monkeypatch, tmp_path):
+    asked = []
+    monkeypatch.setattr(L, "find", lambda *a: asked.append(a[0]) or None)
+    path, track = str(tmp_path / "lyrics_cache.json"), {"title": "Rare", "artist": "Someone", "duration": 200.0}
+    wait(L.LyricsCache(path), track)
+    wait(L.LyricsCache(path), track)
+    assert asked == ["Rare"]
+    now = L.time.time() + L.NONE_AGAIN + 1
+    monkeypatch.setattr(L.time, "time", lambda: now)
+    wait(L.LyricsCache(path), track)
+    assert asked == ["Rare", "Rare"]
+
+
+def test_lrclib_not_answering_is_not_kept(monkeypatch, tmp_path):
+    monkeypatch.setattr(L, "RETRY_AFTER", 0.0)
+    monkeypatch.setattr(L, "find", lambda *a: (_ for _ in ()).throw(LookupError("busy")))
+    wait(L.LyricsCache(str(tmp_path / "lyrics_cache.json")), {"title": "Tears", "artist": "RubberBand", "duration": 295.9})
+    assert not (tmp_path / "lyrics_cache.json").exists()

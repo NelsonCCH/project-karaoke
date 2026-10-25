@@ -195,6 +195,7 @@ folder. README.md "Uninstall" lists the optional driver and firewall clean-up, w
 
 - `settings.json`: the user's saved choices (model, delay, speakers, vocal level, lyrics offset, sound preset,
   the microphone and its effects, and `song_keys` / `song_vocals`: the key and vocal of every song they changed). Delete it to reset. It is never committed.
+- `lyrics_cache.json`: every lyrics answer LRCLIB gave, so songs played again need no lookup. Safe to delete.
 - `models/`: downloaded model weights. `karaoke/models.py` lists the models and the delay settings.
 - `agent.log`: warnings and errors (the app has no console).
 - `docs/mac-route.md`: notes on the optional "play it in another room" setup. Not needed here.

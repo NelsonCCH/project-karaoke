@@ -8,6 +8,8 @@ artist. LRCLIB answers 503 when busy, so every request is retried a few times, a
 is tried again later instead of being remembered as "no lyrics".
 """
 
+import json
+import os
 import re
 import threading
 import time
@@ -17,6 +19,7 @@ import requests
 API = "https://lrclib.net/api"
 HEADERS = {"User-Agent": "ProjectKaraoke/0.1 (personal home karaoke)"}
 DURATION_SLACK = 2.5        # seconds between Spotify's and LRCLIB's duration still counted as the same recording
+NONE_AGAIN = 7 * 86400          # a song LRCLIB had no lyrics for is asked again after a week
 RETRY_AFTER, RETRIES = 15.0, 3   # seconds between lookups LRCLIB did not answer, and how many
 _TIME = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
 
@@ -99,10 +102,18 @@ def find(title, artist, album, duration):
 
 class LyricsCache:
     """Fetches in the background; get() returns None while a lookup is still running, or waiting to be retried
-    because LRCLIB did not answer."""
+    because LRCLIB did not answer. With a path, every answer LRCLIB gave (lyrics, or none) is also kept on disk,
+    so a song played again, in any later session, shows its lyrics at once without asking LRCLIB."""
 
-    def __init__(self):
+    def __init__(self, path=None):
         self.done, self.pending = {}, set()
+        self.path, self.disk = path, {}
+        if path:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    self.disk = json.load(f)
+            except (OSError, ValueError):
+                self.disk = {}
         self.failed = {}            # key -> (attempts, time of the last one)
         self.lock = threading.Lock()
 
@@ -110,6 +121,10 @@ class LyricsCache:
         key = (track["title"], track["artist"], round(track["duration"]))
         with self.lock:
             if key in self.done:
+                return self.done[key]
+            d = self.disk.get("\t".join(map(str, key)))
+            if d and (d["synced"] or d["plain"] or time.time() - d.get("at", 0) < NONE_AGAIN):
+                self.done[key] = {k: d[k] for k in ("synced", "plain", "source")}
                 return self.done[key]
             if key in self.pending:
                 return None
@@ -121,7 +136,9 @@ class LyricsCache:
         def work():
             try:
                 res = find(track["title"], track["artist"], track.get("album") or "", track["duration"])
+                answered = True
             except LookupError:
+                answered = False
                 with self.lock:
                     n = self.failed.get(key, (0, 0.0))[0] + 1
                     self.failed[key] = (n, time.monotonic())
@@ -130,10 +147,22 @@ class LyricsCache:
                         return
                 res = None
             except Exception:
-                res = None
+                res, answered = None, False
             with self.lock:
                 self.done[key] = res or {"synced": [], "plain": "", "source": ""}
                 self.pending.discard(key)
+                if answered and self.path:
+                    self.disk["\t".join(map(str, key))] = {**self.done[key], "at": round(time.time())}
+                    self._write()
 
         threading.Thread(target=work, daemon=True).start()
         return None
+
+    def _write(self):
+        """Under self.lock. Write a whole new file, then swap it in, so a crash never leaves half a file."""
+        try:
+            with open(self.path + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(self.disk, f, ensure_ascii=False)
+            os.replace(self.path + ".tmp", self.path)
+        except OSError:
+            pass

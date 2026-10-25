@@ -106,7 +106,8 @@ Spotify --(per-app output)--> CABLE Input ==> CABLE Output --> separation --> vo
 - `karaoke/mic.py` is the PC's microphone: a low-latency input stream whose voice the speakers' callback adds on
   top of the karaoke, through high-pass, gate, tone, compressor, level, reverb + echo and a limiter, block-wise in
   numpy (~4% of real time). The music can run seconds late because the lyrics follow it; the voice cannot.
-- `karaoke/lyrics.py` fetches lyrics from LRCLIB, matching on title and duration.
+- `karaoke/lyrics.py` fetches lyrics from LRCLIB, matching on title and duration, and keeps every answer in
+  `lyrics_cache.json`, so a song played again shows its lyrics at once.
 - `karaoke/models.py` lists the models with their leaderboard scores.
 
 ## Measured facts (on the test hardware: an RTX 3090 PC and an M1 MacBook Air)

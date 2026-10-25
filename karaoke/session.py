@@ -98,7 +98,7 @@ class Session:
         self.stopped_at = 0.0
         self.spotify_playing = True
         self.off_cable_since = None
-        self.lyrics = LyricsCache()
+        self.lyrics = LyricsCache(os.path.join(os.path.dirname(SETTINGS), "lyrics_cache.json"))
         self.scan_devices()
         self.watcher = SpotifyWatcher(self._on_pause, self._on_play, self._on_jump)
         self.watcher.start()
