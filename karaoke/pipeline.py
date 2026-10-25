@@ -24,6 +24,7 @@ import sounddevice as sd
 import soxr
 
 from .engine import MODEL_DIR, SR, StreamingSeparator
+from .eq import DEFAULT_EQ, Equalizer
 from .keyshift import KeyShifter
 from .models import MODELS
 
@@ -35,6 +36,9 @@ HOLD = 0.3                # seconds of input held back before separation, to cut
 SILENT = 1e-5             # Spotify sends digital silence while paused
 XFADE = 2048              # samples of crossfade when the key shift switches on or off
 DROP_GAP = 0.5            # seconds between drift skips at most
+SEEK_LOOK = 0.5           # seconds of input looked at after a skip / seek to find where the old song really ends
+SEEK_TAIL = 0.3           # ...which is within this much of the moment the jump is noticed (measured 0.10-0.19 s)
+QUIET_DB = -50            # 10 ms RMS below this is the gap Spotify leaves between the old audio and the new
 
 
 def wasapi_devices(kind):
@@ -102,8 +106,17 @@ class SampleBuffer:
 
 
 class Pipeline:
-    def __init__(self, model_key, in_dev, out_dev, on_status=None, chunk_seconds=None, clock=None, sink=None):
+    seek_look = None            # input gathered after a jump until the old song's tail can be cut off (_cut_seek_tail)
+
+    def __init__(self, model_key, in_dev, out_dev, on_status=None, chunk_seconds=None, clock=None, sink=None,
+                 on_track=None):
         self.model_key = model_key
+        # on_track(serial) -> semitones, called when the first sample of a new track reaches the mixer, so a song's
+        # saved key starts exactly with that song and the end of the last one keeps its own.
+        self.on_track = on_track
+        self.mix_track = None
+        self.mic = None             # mic.Mic, added to the speakers in _out_cb; the session opens and closes it
+        self.low_latency = False    # small output buffers, set while a mic is in use
         self.sink = sink            # NetSink: play on the living-room Mac instead of out_dev
         self.chunk_seconds = chunk_seconds
         self.in_dev, self.out_dev = in_dev, out_dev
@@ -114,6 +127,7 @@ class Pipeline:
         self.vocal_level = 0.0      # 0 = karaoke, 1 = original song
         self.volume = 1.0           # trim on top of the speakers' Windows volume, which stays the main control
         self.semitones = 0
+        self.eq_preset = DEFAULT_EQ     # eq.PRESETS name; the mixer fades to a new one by itself
         self.sep = None
         self.running = False
         self.stats = {"state": "stopped", "underruns": 0, "gpu_load": 0.0, "dropped": 0}
@@ -148,6 +162,7 @@ class Pipeline:
         self.shifter = KeyShifter(SR)
         self.dry = SampleBuffer(2)
         self.wet_gain = 0.0
+        self.eq = Equalizer(SR, self.eq_preset)
         # Separation emits a whole hop at a time, so start playing once one hop plus a margin is banked.
         self.prime = self.sep.step + int(BANK_MARGIN * SR)
         self.hold = SampleBuffer(4)            # last HOLD s of tagged input, so a pause can be cut at its exact moment
@@ -169,11 +184,26 @@ class Pipeline:
                                         callback=self._in_cb, blocksize=0)
         self.in_stream.start()
         if not self.sink:
-            self.out_stream = sd.OutputStream(device=self.out_dev, samplerate=self.out_sr, channels=2,
-                                              dtype="float32", callback=self._out_cb, blocksize=0)
-            self.out_stream.start()
-            self.out_latency = float(self.out_stream.latency)
+            self._open_output()
         self.on_status(f"Buffering ~{self.latency:.0f} s...")
+
+    def _open_output(self):
+        # "low" keeps the singer's own voice prompt (tens of ms); the music has its own buffer either way.
+        self.out_stream = sd.OutputStream(device=self.out_dev, samplerate=self.out_sr, channels=2, dtype="float32",
+                                          callback=self._out_cb, blocksize=0,
+                                          latency="low" if self.low_latency else "high")
+        self.out_stream.start()
+        self.out_latency = float(self.out_stream.latency)
+
+    def set_low_latency(self, on):
+        """Main thread. Reopens the speakers' stream with small or normal buffers (a moment of silence)."""
+        if on == self.low_latency or self.sink or not hasattr(self, "out_stream"):
+            self.low_latency = on
+            return
+        self.low_latency = on
+        self.out_stream.stop()
+        self.out_stream.close()
+        self._open_output()
 
     def stop(self):
         self.running = False
@@ -260,6 +290,7 @@ class Pipeline:
             self.mix_reset = True       # the mixer also holds old audio (shifter, dry delay, resampler)
             self.playing = False
             self.stats["state"] = "buffering"
+            self.seek_look = []
         if self.trim_pause:
             # Feed what was played before the pause; drop the silence Spotify sent after it.
             self.trim_pause = False
@@ -269,6 +300,12 @@ class Pipeline:
         elif self.paused:
             return
         else:
+            if self.seek_look is not None:
+                self.seek_look.append(x)
+                if sum(len(b) for b in self.seek_look) < SEEK_LOOK * SR:
+                    return
+                x = self._cut_seek_tail(np.concatenate(self.seek_look))
+                self.seek_look = None
             if self.skip_lead:
                 # Spotify takes a moment to restart after "play"; skip that silence so the song joins up.
                 loud = np.flatnonzero(np.abs(x[:, :2]).max(1) > SILENT)
@@ -292,12 +329,37 @@ class Pipeline:
             tags = self.tags.pop(inst.shape[1])
             self.stems.push(np.concatenate([np.concatenate([inst, voc]).T.astype(np.float32), tags], 1))
 
+    @staticmethod
+    def _cut_seek_tail(x):
+        """The first SEEK_LOOK s captured after a skip / seek was noticed. Spotify reports the new position a
+        moment before its audio changes (measured 0.10-0.19 s of the old song after the report, then on a restart
+        ~0.2 s of near silence), so drop up to where the old audio ends: the end of a quiet stretch, or else the
+        deepest dip, if either comes within SEEK_TAIL s. With neither, the audio had already changed: keep it all."""
+        hop = SR // 100
+        n = len(x) // hop
+        if n == 0:
+            return x
+        frames = x[: n * hop, :2].reshape(n, hop, 2)
+        db = 20 * np.log10(np.sqrt((frames ** 2).mean(axis=(1, 2))) + 1e-9)
+        look = int(SEEK_TAIL * 100)
+        quiet = np.flatnonzero(db[:look] < QUIET_DB)
+        if len(quiet):
+            end = quiet[0]
+            while end < n and db[end] < QUIET_DB:
+                end += 1
+            return x[end * hop :]
+        m = int(np.argmin(db[:look]))
+        if db[m] < np.median(db) - 12:
+            return x[m * hop :]
+        return x
+
     def _reset_mixer(self):
         """Drop every bit of audio the mixer stage still holds, so nothing of the old song leaks out."""
         self.mix_reset = False
         self.shifter = KeyShifter(SR)
         self.dry.clear()
         self.wet_gain = 0.0
+        self.eq.reset()
         self.rs_out = soxr.ResampleStream(SR, self.out_sr, 2, dtype="float32", quality="VHQ")
         self.out.clear()
 
@@ -335,9 +397,15 @@ class Pipeline:
                     s = np.concatenate([s[:, :4] * (1 - f) + n[:, :4] * f, n[:, 4:]], 1)
                     self.last_drop = now
                     self.stats["dropped"] += 1
+            track = int(s[0, 4])
+            if track != self.mix_track:
+                self.mix_track = track
+                if self.on_track:
+                    self.semitones = self.on_track(track)
             y = s[:, :2] + self.vocal_level * s[:, 2:4]
             # Hard ceiling at full scale: separation residue or the key shift must never produce a burst.
-            y = np.clip(self._shift(y) * self.volume, -1.0, 1.0)
+            self.eq.set(self.eq_preset)
+            y = np.clip(self.eq.process(self._shift(y)) * self.volume, -1.0, 1.0)
             if self.mix_reset:
                 continue                # a jump arrived while this block was in flight: it is old audio
             if len(y):
@@ -377,3 +445,8 @@ class Pipeline:
             outdata[len(y) :] = 0
         else:
             outdata[:] = y
+        mic = self.mic
+        if mic is not None:
+            # The voice joins here, at the last moment, so it is not delayed by the music's buffers. It plays
+            # through pauses and skips too: the singer can talk between songs.
+            np.clip(outdata + mic.pull(frames)[:, None], -1.0, 1.0, out=outdata)

@@ -2,7 +2,7 @@
 
 usage: .venv\\Scripts\\python tools\\doctor.py [--speed [model-key]]
 
-  --speed   also load the default model (downloads 1.7 GB the first time) and time it on this GPU at every
+  --speed   also load the default model (downloads 0.9 GB the first time) and time it on this GPU at every
             delay setting, so you know which delays this machine can run live. Name a model key from
             karaoke/models.py to time that one instead.
 

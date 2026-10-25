@@ -4,9 +4,9 @@
 # ///
 """Project Karaoke - living-room player for the Mac.
 
-The PC (in the bedroom) separates the vocals; this script plays the backing it streams, mixes in the mic with
-some echo, and opens the lyrics page. Started from run.sh. Press Return (or close Terminal) to stop: the PC
-then puts Spotify back to normal.
+The PC (possibly in another room) separates the vocals; this script plays the backing it streams, mixes in the mic with
+some echo, and opens the lyrics page. Started from run.sh. Press Return, close Terminal, or press Stop on the
+phone page to stop: the PC then puts Spotify back to normal, and on a clean stop the window closes itself.
 
 Mic level and echo are set on the phone page; the mic starts at 0 every time so there is no feedback squeal.
 The phone page and the lyrics page are relayed by this Mac (port 8765), so phones only need the same Wi-Fi as
@@ -222,12 +222,15 @@ def start_relay(host, port=PORT):
             self.reply(code, data, ctype)
 
         def reply(self, code, data, ctype):
-            self.send_response(code)
-            self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.send_response(code)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+            except (BrokenPipeError, ConnectionResetError):
+                pass                # the phone left mid-reply (page closed or reloaded): nothing to answer
 
     try:
         server = ThreadingHTTPServer(("0.0.0.0", port), Relay)
@@ -317,6 +320,8 @@ class Player:
         self.underruns = 0
         self.had_data = False
         self.sock = None
+        self.stop = threading.Event()
+        self.stopped_on_pc = False      # Stop was pressed on the phone page / PC: nothing left to play for
 
     def _read_exact(self, n):
         buf = b""
@@ -365,11 +370,21 @@ class Player:
             time.sleep(0.05)
 
     def follow_settings(self):
+        seen_active = False
         while self.running:
             try:
-                st = get_json(self.host, "/state")["settings"]
+                state = get_json(self.host, "/state")
+                st = state["settings"]
                 self.mic_gain = st.get("mic", 0) / 100 * 2.0       # up to +6 dB
                 self.echo_gain = st.get("echo", 30) / 100 * 0.6
+                # Karaoke was on and now is off: Stop was pressed. (An unreachable PC, a Wi-Fi hiccup or a
+                # model change is not that: those keep "active" or never answer.)
+                if state.get("active"):
+                    seen_active = True
+                elif seen_active:
+                    self.stopped_on_pc = True
+                    self.stop.set()
+                    return
             except Exception:
                 pass
             time.sleep(0.3)
@@ -451,7 +466,7 @@ class Player:
     def run(self):
         threading.Thread(target=self.receive, daemon=True).start()
         threading.Thread(target=self.follow_settings, daemon=True).start()
-        stop = threading.Event()
+        stop = self.stop
 
         def wait_for_return():
             try:
@@ -525,14 +540,37 @@ def sing():
     else:
         subprocess.run(["open", f"http://{host}:{PORT}/tv"])
         print(f"Phone control page: http://{host}:{PORT}/  (port {PORT} is busy on this Mac, so only at home)")
+    player = Player(host)
     try:
-        Player(host).run()
+        player.run()
     finally:
-        try:
-            post(host, "/stop")
-            print("Stopped. Spotify is back to normal on the PC.")
-        except Exception:
-            print("Could not reach the PC to stop it; use Stop on the phone page.")
+        if player.stopped_on_pc:
+            print("Karaoke was stopped on the phone page. Spotify is back to normal on the PC.")
+        else:
+            try:
+                post(host, "/stop")
+                print("Stopped. Spotify is back to normal on the PC.")
+            except Exception:
+                print("Could not reach the PC to stop it; use Stop on the phone page.")
+    close_terminal_window()          # a clean stop only: after an error the window stays, so it can be read
+
+
+def close_terminal_window():
+    """Close the Terminal window this runs in, a moment after this script and its shell have exited (closing it
+    sooner would ask "terminate running processes?"). Found by its tty, so no other window is touched."""
+    if os.environ.get("TERM_PROGRAM") != "Apple_Terminal" or not sys.stdin.isatty():
+        return
+    tty = os.ttyname(sys.stdin.fileno())
+    script = ('tell application "Terminal"\n'
+              '  repeat with w in windows\n'
+              f'    if tty of selected tab of w is "{tty}" then\n'
+              '      close w\n'
+              '      exit repeat\n'
+              '    end if\n'
+              '  end repeat\n'
+              'end tell')
+    subprocess.Popen(["/bin/sh", "-c", 'sleep 1; osascript -e "$0"', script], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 if __name__ == "__main__":

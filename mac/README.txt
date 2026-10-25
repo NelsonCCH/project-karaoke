@@ -11,8 +11,9 @@ First time:
   3. A menu appears. Type a number and press Return. The first time, it installs a small tool (uv) by itself,
      and puts a "Karaoke" icon on the Desktop.
 
-Every day: double-click "Karaoke" on the Desktop. Close the window, or press Return in it, to stop: the PC then
-puts Spotify back to normal. If you move this folder, run run.sh once more so the icon follows it.
+Every day: double-click "Karaoke" on the Desktop. To stop: press Stop karaoke on the phone page, press Return
+in the window, or close it. The PC then puts Spotify back to normal and the window closes by itself (the first
+time, macOS may ask to let Terminal control Terminal: allow it). If you move this folder, run run.sh once more so the icon follows it.
 
   1) Sing: plays the karaoke streamed from the PC, opens the lyrics in the browser.
      The first run finds the PC by scanning the Wi-Fi and remembers it (~/karaoke-bench/player.json).

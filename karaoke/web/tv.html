@@ -25,12 +25,18 @@ body{margin:0;background:var(--bg);color:var(--sung);overflow:hidden;
 .top:hover .theme,.top .theme[open]{opacity:1}
 #viewport{position:absolute;inset:0;overflow:hidden}
 #lines{position:absolute;left:0;right:0;top:0;padding:0 6vw;will-change:transform}
-.line{font-size:clamp(24px,3.4vw,54px);font-weight:700;line-height:1.25;margin:0 0 .55em;color:var(--todo);
-  max-width:min(1400px,88vw);overflow-wrap:anywhere}
-.line.past{color:var(--sung);opacity:.75}
-.line.now{color:transparent;
-  background:linear-gradient(90deg,var(--fill) var(--p,0%),var(--todo) var(--p,0%));
-  -webkit-background-clip:text;background-clip:text}
+.line{font-size:clamp(24px,min(4.2vw,7vh),84px);font-weight:700;line-height:1.25;margin:0 0 .5em;color:var(--todo);
+  max-width:min(1500px,88vw);overflow-wrap:anywhere;transition:opacity .4s}
+.line.past{color:var(--sung);opacity:.55}
+#viewport{-webkit-mask-image:linear-gradient(to bottom,transparent 7%,#000 17%,#000 82%,transparent);
+  mask-image:linear-gradient(to bottom,transparent 7%,#000 17%,#000 82%,transparent)}
+.bar{position:fixed;left:0;top:0;height:4px;width:0;background:var(--fill);opacity:.7;z-index:7}
+.times{font-size:clamp(12px,1.2vw,20px);font-variant-numeric:tabular-nums;opacity:.7;white-space:nowrap}
+/* The singer's key at a glance: only shown when it is not the original. */
+.keypill{font-size:clamp(12px,1.2vw,20px);font-weight:700;white-space:nowrap;padding:.15em .7em;border-radius:99px;
+  background:var(--card);border:1px solid var(--line);color:var(--sung)}
+:root[data-scheme="song"] .keypill{background:rgba(0,0,0,.28);border-color:transparent}
+.line.now{color:var(--fill)}
 .line.blank{min-height:.6em}
 .msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 8vw;
   font-size:clamp(20px,3vw,44px);font-weight:700;color:var(--sung)}
@@ -39,14 +45,20 @@ body{margin:0;background:var(--bg);color:var(--sung);overflow:hidden;
 body.idle{cursor:none}
 /* Scan-to-control card: any phone on the home Wi-Fi opens the same control page. */
 .qr{position:fixed;right:3vw;bottom:3vh;z-index:6;display:flex;flex-direction:column;align-items:center;gap:6px;
-  padding:8px 8px 6px;border-radius:12px;background:rgba(0,0,0,.28);color:#fff;font-size:clamp(11px,.9vw,15px)}
+  padding:8px 8px 6px;border-radius:12px;background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:clamp(11px,.9vw,15px)}
+:root[data-scheme="song"] .qr{background:rgba(0,0,0,.28);border-color:transparent;color:#fff}
 .qr .code{width:clamp(96px,8.5vw,150px);aspect-ratio:1;border-radius:6px;overflow:hidden}
 .qr .code svg{display:block;width:100%;height:100%}
+/* A phone already has the control page; the code would only cover the lyrics. */
+@media (max-width:760px){.qr{display:none}}
 </style>
 </head>
 <body>
+<div class="bar" id="bar"></div>
 <div class="top">
   <div class="track" id="track"></div>
+  <div class="keypill" id="keypill" hidden></div>
+  <div class="times" id="times"></div>
   <details class="theme" id="theme">
     <summary title="Colour scheme" aria-label="Colour scheme">&#127912;</summary>
     <div class="theme-menu" id="thememenu" role="menu"></div>
@@ -89,6 +101,9 @@ function poll(){
       if (s.track) document.documentElement.style.setProperty("--song", songColour(s.track));
     }
     $("track").innerHTML = s.track ? "<b>" + esc(s.track.title) + "</b> · " + esc(s.track.artist) : "";
+    var k = s.active && s.track ? s.settings.key : 0;
+    $("keypill").hidden = !k;
+    $("keypill").textContent = "Key " + (k > 0 ? "+" + k : "−" + Math.abs(k));
     if (s.phone_url && $("qr").dataset.url !== s.phone_url){
       $("qr").dataset.url = s.phone_url;
       $("qrcode").innerHTML = qrSvg(s.phone_url);
@@ -110,6 +125,7 @@ function loadLyrics(serial){
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 
 function message(html){
+  if (!state || !state.active || !state.track){ $("bar").style.width = "0"; $("times").textContent = ""; }
   $("viewport").hidden = true;
   $("msg").hidden = false;
   if ($("msg").dataset.h !== html){ $("msg").dataset.h = html; $("msg").innerHTML = html; }
@@ -144,17 +160,20 @@ function frame(){
   var t = target();
   if (t == null) return message("Play a song on Spotify.");
   clock = (clock == null || Math.abs(t - clock) > 0.4) ? t : clock + (t - clock) * 0.15;
+  var dur = state.track && state.track.duration;
+  $("bar").style.width = dur ? Math.min(100, clock / dur * 100).toFixed(2) + "%" : "0";
+  $("times").textContent = dur ? mmss(clock) + " / " + mmss(dur) : "";
   if (!lyr) return message("Finding lyrics…");
   var L = lyr.synced || [];
-  if (!L.length && !lyr.plain) return message("No lyrics found for this song.");
+  if (!L.length && !lyr.plain) return message("No lyrics found for this song.<small>The music plays on without the voice. Lyrics come from LRCLIB, a free community library.</small>");
   $("msg").hidden = true;
   $("viewport").hidden = false;
 
   if (!L.length){       // unsynced lyrics: show them all and scroll through with the song
     if (built !== lyrSerial){ build(lyr.plain.split("\n").map(function(s){ return [0, s]; })); }
-    var dur = (state.track && state.track.duration) || 240, lines = $("lines");
+    var lines = $("lines");
     var room = Math.max(0, lines.scrollHeight - window.innerHeight * 0.6);
-    scrollGoal = room * Math.min(1, clock / dur) - window.innerHeight * 0.2;
+    scrollGoal = room * Math.min(1, clock / (dur || 240)) - window.innerHeight * 0.2;
     glide();
     lines.querySelectorAll(".line").forEach(function(e){ e.className = "line past"; });
     return;
@@ -172,12 +191,8 @@ function frame(){
     scrollTo(i);
   }
   glide();
-  if (i >= 0){
-    var end = i + 1 < L.length ? L[i + 1][0] : L[i][0] + 4;
-    var p = Math.max(0, Math.min(1, (clock - L[i][0]) / Math.max(0.3, end - L[i][0])));
-    $("lines").children[i].style.setProperty("--p", (p * 100).toFixed(1) + "%");
-  }
 }
+function mmss(s){ s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
 
 var idle;
 document.addEventListener("mousemove", function(){ document.body.classList.remove("idle"); clearTimeout(idle);

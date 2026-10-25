@@ -17,7 +17,9 @@ import time
 import sounddevice as sd
 
 from . import approuting
+from .eq import DEFAULT_EQ, PRESETS
 from .lyrics import LyricsCache
+from .mic import DEFAULT_SIZE, DEFAULT_VOICE, SIZES, VOICES, Mic, level_gain
 from .netsink import NetSink
 from .models import DEFAULT_MODEL, DEFAULT_WINDOW, MODELS, WINDOWS
 from .pipeline import Pipeline, default_speakers, find_device, wasapi_devices
@@ -26,8 +28,10 @@ from .winvol import default_playback_name
 
 SETTINGS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "settings.json")
 ENGINE_LOCK_PORT = 8766     # held while an engine runs, so the window and the agent never run one each
-LIVE = ("vocal", "volume", "key", "lyrics_offset", "mic", "echo")     # mic / echo are applied on the Mac
+LIVE = ("vocal", "volume", "key", "lyrics_offset", "eq", "mic", "echo", "mic_device", "voice", "reverb_size",
+        "delay_level", "delay_ms", "delay_repeat", "gate", "comp")     # mic / echo also reach the Mac player
 RESTART = ("model", "delay", "speakers")
+LYRICS_OFFSET = -500        # ms; lines light up this much before they are sung, as karaoke screens do
 RESTORE_AFTER_PAUSE = 2.0   # s from asking Spotify to pause until it goes back to the speakers
 
 
@@ -65,10 +69,21 @@ class Session:
             "model": saved.get("model") if saved.get("model") in MODELS else DEFAULT_MODEL,
             "delay": saved.get("delay") if saved.get("delay") in WINDOWS else DEFAULT_WINDOW,
             "speakers": saved.get("speakers"),
-            "vocal": saved.get("vocal", 0), "volume": saved.get("volume", 100),
-            "key": 0, "lyrics_offset": saved.get("lyrics_offset", 0),
+            "vocal": saved.get("vocal", 10), "volume": saved.get("volume", 100),
+            "key": 0, "lyrics_offset": saved.get("lyrics_offset", LYRICS_OFFSET),
+            "eq": saved.get("eq") if saved.get("eq") in PRESETS else DEFAULT_EQ,
             "mic": 0, "echo": saved.get("echo", 30),    # mic starts muted every session: no surprise feedback
+            # The PC's own mic (the Mac player has its own). "echo" is the reverb amount, as on the Mac.
+            "mic_device": saved.get("mic_device") or "",
+            "voice": saved.get("voice") if saved.get("voice") in VOICES else DEFAULT_VOICE,
+            "reverb_size": saved.get("reverb_size") if saved.get("reverb_size") in SIZES else DEFAULT_SIZE,
+            "delay_level": saved.get("delay_level", 0), "delay_ms": saved.get("delay_ms", 220),
+            "delay_repeat": saved.get("delay_repeat", 35),
+            "gate": saved.get("gate", True), "comp": saved.get("comp", True),
         }
+        self.mic_error = ""
+        # song_id -> semitones, for every song whose key was changed: it comes back with the song, others play at 0
+        self.song_keys = saved.get("song_keys") if isinstance(saved.get("song_keys"), dict) else {}
         self.output = "pc"          # "pc" = the PC's speakers, "mac" = streamed to the living-room Mac
         self.sink = NetSink()
         self.pipe = None
@@ -92,6 +107,7 @@ class Session:
             sd._terminate()
             sd._initialize()
         self.outs = [(i, n) for i, n in wasapi_devices("output") if "CABLE" not in n]
+        self.ins = [(i, n) for i, n in wasapi_devices("input") if "CABLE" not in n]     # microphones
         self.in_dev = find_device("input", "CABLE Output")
         if self.settings["speakers"] not in [n for i, n in self.outs]:
             default_out = default_speakers()
@@ -149,6 +165,7 @@ class Session:
         self.save()
         old, self.pipe = self.pipe, None
         if old:
+            self._close_mic(old)
             old.stop()
         if paused:
             # Back to the speakers only once the pause has landed, or the song's last moment leaks out of them.
@@ -170,6 +187,7 @@ class Session:
         self.save()
         old, self.pipe = self.pipe, None
         if old:
+            self._close_mic(old)
             old.stop()
         self.gen += 1
         gen = self.gen
@@ -179,7 +197,7 @@ class Session:
         out_dev = next((i for i, n in self.outs if n == s["speakers"]), None)
         pipe = Pipeline(s["model"], self.in_dev, out_dev, on_status=self._status,
                         chunk_seconds=WINDOWS[s["delay"]], clock=self.watcher.position_at,
-                        sink=self.sink if self.output == "mac" else None)
+                        sink=self.sink if self.output == "mac" else None, on_track=self._on_track)
 
         def work():
             try:
@@ -194,11 +212,13 @@ class Session:
                 pipe.sep = None     # stopped or restarted again while loading: a newer pipeline is coming
                 return
             try:
+                pipe.low_latency = bool(self.settings["mic_device"]) and self.output == "pc"
                 pipe.open_streams()
             except Exception as e:
                 self._status(f"Failed to open audio: {e}")
                 return
             self.pipe = pipe
+            self._open_mic()
             if not self.spotify_playing:
                 pipe.pause()
             self.apply()
@@ -212,16 +232,28 @@ class Session:
         kw = {k: v for k, v in kw.items() if k in self.settings}
         if "key" in kw:
             kw["key"] = max(-12, min(12, int(kw["key"])))
-        for k in ("vocal", "volume", "mic", "echo"):
+        for k in ("vocal", "volume", "mic", "echo", "delay_level", "delay_repeat"):
             if k in kw:
                 kw[k] = max(0, min(100, float(kw[k])))
-        if kw.get("model") not in (None, *MODELS) or kw.get("delay") not in (None, *WINDOWS):
+        if "delay_ms" in kw:
+            kw["delay_ms"] = max(60, min(500, int(kw["delay_ms"])))
+        for k in ("gate", "comp"):
+            if k in kw:
+                kw[k] = bool(kw[k])
+        if (kw.get("model") not in (None, *MODELS) or kw.get("delay") not in (None, *WINDOWS)
+                or kw.get("eq") not in (None, *PRESETS) or kw.get("voice") not in (None, *VOICES)
+                or kw.get("reverb_size") not in (None, *SIZES)
+                or kw.get("mic_device") not in (None, "", *[n for i, n in self.ins])):
             return
         changed = {k for k, v in kw.items() if self.settings[k] != v}
         self.settings.update(kw)
+        if "key" in kw:
+            self._remember_key(kw["key"])
         if changed & set(RESTART):
             self.restart()
         else:
+            if "mic_device" in changed:
+                self._open_mic()
             self.apply()
             self.save()
 
@@ -231,11 +263,91 @@ class Session:
             p.vocal_level = s["vocal"] / 100
             p.volume = s["volume"] / 100
             p.semitones = s["key"]
+            p.eq_preset = s["eq"]
+            if p.mic:
+                c = p.mic.chain
+                c.level = level_gain(s["mic"])
+                c.reverb_mix = s["echo"] / 100 * 0.6
+                c.reverb.size(s["reverb_size"])
+                c.echo_mix = s["delay_level"] / 100 * 0.7
+                c.echo.ms, c.echo.repeat = s["delay_ms"], s["delay_repeat"] / 100 * 0.8
+                c.gate_on, c.comp_on = s["gate"], s["comp"]
+                c.set_voice(s["voice"])
+
+    # ---- the PC's microphone ---------------------------------------------------------------------------------
+
+    def _close_mic(self, p):
+        m, p.mic = p.mic, None
+        if m:
+            m.close()
+
+    def _open_mic(self):
+        """Main thread. (Re)open the chosen microphone on the running pipeline, or none."""
+        p = self.pipe
+        if not p:
+            return
+        self._close_mic(p)
+        self.mic_error = ""
+        name = self.settings["mic_device"]
+        if not name or self.output != "pc":
+            p.set_low_latency(False)
+            return
+        dev = next((i for i, n in self.ins if n == name), None)
+        if dev is None:
+            self.mic_error = f"{name} is not connected. Plug it in, then press Stop karaoke and Start karaoke."
+            return
+        try:
+            p.set_low_latency(True)
+            p.mic = Mic(dev, p.out_sr)
+        except Exception as e:
+            self.mic_error = f"Could not open the microphone: {e}"
+            return
+        self.apply()
+
+    def mic_state(self):
+        p = self.pipe
+        m = p.mic if p else None
+        if not m:
+            return {"on": False, "error": self.mic_error}
+        peak, m.chain.peak_in = m.chain.peak_in, m.chain.peak_in * 0.3      # falls back between polls
+        return {"on": True, "error": "", "peak": round(peak, 4),
+                "latency_ms": round((m.latency + p.out_latency) * 1000 + 6)}
 
     def save(self):
         s = self.settings
-        save_settings({k: (round(s[k]) if k in ("vocal", "volume", "echo") else s[k]) for k in s
-                       if k not in ("key", "mic")})
+        save_settings({**{k: (round(s[k]) if k in ("vocal", "volume", "echo") else s[k]) for k in s
+                          if k not in ("key", "mic")}, "song_keys": self.song_keys})
+
+    # ---- key per song ----------------------------------------------------------------------------------------
+
+    @staticmethod
+    def song_id(info):
+        """Same artist and title = same song, whichever album or playlist it is played from."""
+        if not info or not info.get("title"):
+            return None
+        return f"{(info.get('artist') or '').strip().lower()} - {info['title'].strip().lower()}"
+
+    def _key_song(self):
+        """The song a key change is meant for: the one being heard, or, while nothing is heard yet (the wait
+        after a skip), the one Spotify is playing, which is the next one heard."""
+        h = self.pipe.heard() if self.pipe else None
+        serial = h[0] if h else self.watcher.serial
+        return self.song_id(self.watcher.tracks.get(serial))
+
+    def _remember_key(self, key):
+        sid = self._key_song()
+        if sid is None:
+            return
+        if key:
+            self.song_keys[sid] = key
+        else:
+            self.song_keys.pop(sid, None)
+
+    def _on_track(self, serial):
+        """Mixer thread, first sample of a new track: its saved key, or 0 for a song never shifted."""
+        key = self.song_keys.get(self.song_id(self.watcher.tracks.get(serial)), 0)
+        self.settings["key"] = key
+        return key
 
     # ---- Spotify ---------------------------------------------------------------------------------------------
 
@@ -296,7 +408,8 @@ class Session:
             return None, None
         serial, pos = h
         info = self.watcher.tracks.get(serial)
-        return ({"serial": serial, **info} if info else None), pos + self.settings["lyrics_offset"] / 1000
+        # A negative offset shows each line that much early, so the singer sees it coming.
+        return ({"serial": serial, **info} if info else None), pos - self.settings["lyrics_offset"] / 1000
 
     def state(self):
         p, w = self.pipe, self.watcher
@@ -312,9 +425,10 @@ class Session:
                         "shuffle": w.shuffle},
             "playing": playing, "track": track, "position": pos,
             "latency": p.latency if p and p.sep else None,
-            "now_playing": self.watcher.now_playing, "settings": self.settings,
+            "now_playing": self.watcher.now_playing, "settings": self.settings, "mic": self.mic_state(),
             "options": {"model": {k: f"{m['label']} · {m['size']}" for k, m in MODELS.items()}, "delay": list(WINDOWS),
-                        "speakers": [n for i, n in self.outs]},
+                        "eq": list(PRESETS), "speakers": [n for i, n in self.outs],
+                        "mic_devices": [n for i, n in self.ins], "voice": list(VOICES), "reverb_size": list(SIZES)},
             "stats": dict(p.stats) if p else None,
         }
 

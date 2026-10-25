@@ -45,4 +45,9 @@ def test_state_pages_and_live_set(agent):
     st = agent.session.settings
     assert (st["vocal"], st["key"], st["lyrics_offset"]) == (100, 3, -300)
     assert "bogus" not in st
+    assert "Less bass" in s["options"]["eq"]
+    call(agent, "/set", {"eq": "Less bass"})
+    call(agent, "/set", {"eq": "No such preset"})
+    run_queued(agent)
+    assert st["eq"] == "Less bass"
     assert json.loads(call(agent, "/lyrics?serial=999")[1])["missing"] is True

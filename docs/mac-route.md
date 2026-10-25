@@ -1,11 +1,11 @@
 # The Mac route: karaoke in another room (design notes)
 
-The development setup has the PC in one room and the TV in another. A MacBook by the TV plays the finished
-karaoke, mixes in a microphone, and shows the lyrics over HDMI. Guests control it from their phones. The same
-MacBook works at a friend's place over Tailscale.
+For a PC in one room and the TV in another: a Mac by the TV plays the finished karaoke, mixes in a microphone,
+and shows the lyrics over HDMI. Guests control it from their phones. The same Mac also works away from home,
+reaching the PC over Tailscale.
 
-This setup is specific to one home: one Mac, the names learnt from one PC. These notes are for people, or AI
-agents, who want to build something like it. They cover what the parts are, why they are built this way, and
+Nothing about a particular PC or Mac is built in (the Mac finds the PC on the network by itself), but it has
+been tested with one PC and one Mac only. These notes are for people, or AI agents, who set it up or build on it. They cover what the parts are, why they are built this way, and
 which traps cost real time. The code is in `mac/` and in `karaoke/netsink.py`, `karaoke/agent.py` and
 `karaoke/web/`.
 
@@ -114,6 +114,6 @@ The order is: the saved home address → `NAME.local` → a scan of the /24 for 
 
 ## Running it
 
-`mac/README.txt` is the hands-on guide for the development Mac. `bash path/to/mac/run.sh` opens a menu, writes
+`mac/README.txt` is the hands-on guide on the Mac. `bash path/to/mac/run.sh` opens a menu, writes
 the Desktop icon, and installs `uv` the first time. The player's dependencies (numpy, sounddevice) are inline
 script metadata, so `uv run player.py` needs no other setup.

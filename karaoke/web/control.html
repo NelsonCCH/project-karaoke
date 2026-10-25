@@ -31,6 +31,8 @@ input[type=range]{flex:1;width:100%;accent-color:var(--accent);height:32px}
 .pct{min-width:3.2rem;text-align:right;font-variant-numeric:tabular-nums}
 .chips{display:flex;gap:8px;margin-top:8px}
 .chips button{flex:1;padding:.4rem}
+.chips.wrap{flex-wrap:wrap}
+.chips.wrap button{flex:1 1 30%}
 select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;
   padding:.5rem;width:100%;margin-bottom:10px}
 details.engine>summary{cursor:pointer;color:var(--muted);font-size:.9rem}
@@ -50,11 +52,42 @@ a{color:var(--accent)}
 .progress input{height:24px}
 .time{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;min-width:2.6rem}
 .time:last-child{text-align:right}
+.brand{display:flex;align-items:center;gap:.5rem;flex:1;min-width:0}
+.brand svg{width:26px;height:26px;flex:none}
+.pill{display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;font-weight:600;padding:.28rem .65rem;border-radius:999px;
+  border:1px solid var(--line);background:var(--card);color:var(--muted);white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.pill.ok{color:var(--ok)} .pill.busy{color:var(--accent)} .pill.warn{color:var(--warn)}
+.pill.busy i{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+.status{margin-top:10px}
+.transport button svg{width:22px;height:22px;fill:currentColor;display:block;margin:auto}
+.transport #pp svg{width:26px;height:26px}
+.chips button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.keysub{font-size:.8rem;color:var(--muted);margin-left:4px;white-space:nowrap}
+@media (max-width:420px){.keysub{display:none}}
+.actions{margin-top:14px;gap:10px}
+.actions button{flex:1;padding:.7rem;font-weight:600}
+.actions a{flex:1;text-align:center;padding:.7rem;border:1px solid var(--line);border-radius:10px;text-decoration:none;font-weight:600}
+button.stop{color:var(--danger)}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:.84rem;color:var(--muted);align-items:center;margin-top:4px}
+kbd{font:600 .78rem/1 inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-bottom-width:2px;
+  border-radius:6px;padding:.25rem .45rem;display:inline-block;min-width:1.6rem;text-align:center}
+.url{font-family:ui-monospace,Consolas,monospace;color:var(--ink);overflow-wrap:anywhere}
+.sub{font-size:.78rem;color:var(--muted);margin-top:4px}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:2px 0 4px}
+.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .12s}
+.meter i.hot{background:var(--warn)}
+.hint.warn{color:var(--warn)}
 </style>
 </head>
 <body>
 <header>
-  <h1>Karaoke</h1>
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><rect x="12" y="6" width="8" height="13" rx="4" fill="#fff"/><path d="M9 15a7 7 0 0 0 14 0M16 22v4M12 26h8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+    <h1>Karaoke</h1>
+  </div>
+  <span class="pill" id="pill"><i></i><span id="pilltext">…</span></span>
   <details class="theme" id="theme">
     <summary title="Colour scheme" aria-label="Colour scheme">&#127912;</summary>
     <div class="theme-menu" id="thememenu" role="menu"></div>
@@ -69,7 +102,6 @@ a{color:var(--accent)}
         <div class="artist" id="artist"></div>
       </div>
     </div>
-    <div class="status" id="status">Connecting…</div>
     <div class="row progress">
       <span class="time" id="elapsed">0:00</span>
       <input type="range" id="seek" min="0" max="1" step="0.1" value="0" aria-label="Position in the song">
@@ -77,32 +109,33 @@ a{color:var(--accent)}
     </div>
     <div class="row transport">
       <button data-t="shuffle" id="shuffle" class="mode" aria-label="Shuffle" title="Shuffle"><svg viewBox="0 0 24 24"><path d="M3 7h3.5c2 0 3.2 1 4.3 2.6l2.4 4.8C14.3 16 15.5 17 17.5 17H21M3 17h3.5c1.6 0 2.7-.7 3.6-1.8M14 8.8c.9-1.1 2-1.8 3.5-1.8H21M18.5 4.5 21 7l-2.5 2.5M18.5 14.5 21 17l-2.5 2.5"/></svg></button>
-      <button data-t="prev" aria-label="Previous">&#9198;</button>
-      <button data-t="playpause" id="pp" aria-label="Play or pause">&#9199;</button>
-      <button data-t="next" aria-label="Next">&#9197;</button>
+      <button data-t="prev" aria-label="Previous"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="2.4" height="14" rx="1"/><path d="M19 5.8v12.4a.8.8 0 0 1-1.2.7L9 12.7a.8.8 0 0 1 0-1.4l8.8-6.2a.8.8 0 0 1 1.2.7z"/></svg></button>
+      <button data-t="playpause" id="pp" aria-label="Play or pause"></button>
+      <button data-t="next" aria-label="Next"><svg viewBox="0 0 24 24"><rect x="16.6" y="5" width="2.4" height="14" rx="1"/><path d="M5 5.8v12.4a.8.8 0 0 0 1.2.7l8.8-6.2a.8.8 0 0 0 0-1.4L6.2 5.1A.8.8 0 0 0 5 5.8z"/></svg></button>
       <span style="width:2.6rem;flex:none"></span>
     </div>
-    <div class="row" style="margin-top:10px">
-      <button class="primary" id="startstop">Start</button>
-      <a href="/tv" target="_blank" style="margin-left:auto">Lyrics screen ↗</a>
+    <div class="status" id="status">Connecting…</div>
+    <div class="row actions">
+      <button class="primary" id="startstop">Start karaoke</button>
+      <a href="/tv" target="_blank">Lyrics screen ↗</a>
     </div>
-    <div class="hint" id="deskhint" hidden>Close this window to stop: Spotify goes straight back to normal.
-      Keys: ↑/↓ original vocal ±10%, ←/→ key, 0 resets the key, V switches 0% / 30%.
-      <span id="phonehint"></span></div>
+    <div class="hint" id="deskhint" hidden>Closing this window stops karaoke: Spotify pauses and goes back to your speakers.</div>
   </section>
 
   <section class="card">
     <div class="label">Original vocal</div>
     <div class="row"><input type="range" id="vocal" min="0" max="100" step="1"><span class="pct" id="vocalv"></span></div>
-    <div class="chips"><button data-vocal="0">Off</button><button data-vocal="30">Guide 30%</button><button data-vocal="100">Original</button></div>
+    <div class="chips"><button data-vocal="0">Off</button><button data-vocal="10">10%</button><button data-vocal="40">Guide 40%</button><button data-vocal="100">Original</button></div>
   </section>
 
   <section class="card">
     <div class="label">Key</div>
     <div class="row">
       <button class="big" id="keydown">−</button><span class="value" id="keyv">0</span><button class="big" id="keyup">+</button>
+      <span class="keysub" id="keysub"></span>
       <button id="keyreset" style="margin-left:auto">Reset</button>
     </div>
+    <div class="hint">Remembered for each song: it comes back the next time that song plays. New songs start at 0.</div>
   </section>
 
   <section class="card">
@@ -110,12 +143,38 @@ a{color:var(--accent)}
     <div class="row"><input type="range" id="volume" min="0" max="100" step="1"><span class="pct" id="volumev"></span></div>
   </section>
 
-  <section class="card" id="miccard" hidden>
-    <div class="label">Microphone (on the Mac)</div>
-    <div class="row"><input type="range" id="mic" min="0" max="100" step="1"><span class="pct" id="micv"></span></div>
-    <div class="label" style="margin-top:12px">Echo</div>
-    <div class="row"><input type="range" id="echo" min="0" max="100" step="1"><span class="pct" id="echov"></span></div>
-    <div class="hint">The mic starts at 0 each time so it never squeals. Through the Mac's speakers, keep it low.</div>
+  <section class="card">
+    <div class="label">Sound</div>
+    <div class="chips wrap" id="eq"></div>
+    <div class="hint">Changes at once: try them on a song you know. Bass presets never make it louder, so compare by ear.</div>
+  </section>
+
+  <section class="card" id="miccard">
+    <div class="label" id="miclabel">Microphone</div>
+    <select id="micdev" aria-label="Microphone"></select>
+    <div id="micon">
+      <div class="row"><input type="range" id="mic" min="0" max="100" step="1" aria-label="Mic level"><span class="pct" id="micv"></span></div>
+      <div class="meter" id="meterwrap" title="Mic input level"><i id="meter"></i></div>
+      <div class="hint" id="michint"></div>
+      <div class="label" style="margin-top:12px">Reverb</div>
+      <div class="row"><input type="range" id="echo" min="0" max="100" step="1" aria-label="Reverb"><span class="pct" id="echov"></span></div>
+      <div id="pcfx">
+        <div class="chips" id="rsize"></div>
+        <div class="label" style="margin-top:14px">Echo</div>
+        <div class="row"><input type="range" id="delay_level" min="0" max="100" step="1" aria-label="Echo level"><span class="pct" id="delay_levelv"></span></div>
+        <div class="sub">Time</div>
+        <div class="row"><input type="range" id="delay_ms" min="60" max="500" step="10" aria-label="Echo time"><span class="pct" id="delay_msv"></span></div>
+        <div class="sub">Repeats</div>
+        <div class="row"><input type="range" id="delay_repeat" min="0" max="100" step="1" aria-label="Echo repeats"><span class="pct" id="delay_repeatv"></span></div>
+        <div class="label" style="margin-top:14px">Voice</div>
+        <div class="chips wrap" id="voice"></div>
+        <div class="chips" style="margin-top:10px">
+          <button id="comp" title="Evens out loud and soft singing">Smooth</button>
+          <button id="gate" title="Quiets the mic between phrases">Noise gate</button>
+        </div>
+        <div class="hint">Reverb is the room around your voice; Echo repeats it, like a karaoke machine. Smooth evens out loud and soft lines; Noise gate quiets the mic between phrases so it picks up less of the speakers.</div>
+      </div>
+    </div>
   </section>
 
   <section class="card">
@@ -124,20 +183,34 @@ a{color:var(--accent)}
       <button class="big" id="offdown">−</button><span class="value" id="offv" style="font-size:1.1rem">0.0 s</span><button class="big" id="offup">+</button>
       <button id="offreset" style="margin-left:auto">Reset</button>
     </div>
-    <div class="hint">If the highlighted line runs ahead of the singer press −, if it lags press +. Saved for next time.</div>
+    <div class="hint">Minus shows each line earlier, plus later. −0.5 s gives the singer a moment to get ready. Saved for next time.</div>
   </section>
 
   <section class="card">
     <details class="engine">
       <summary>Engine settings</summary>
       <div style="margin-top:10px">
-        <div class="label">Delay (longer = cleaner vocal removal)</div><select id="delay"></select>
+        <div class="label">Delay</div><select id="delay"></select>
+        <div class="hint" style="margin:-4px 0 10px">Longer removes the voice more cleanly.</div>
         <div class="label">Model</div><select id="model"></select>
         <div class="hint" style="margin:-4px 0 10px">A model you have not used yet downloads first (size shown).</div>
         <div class="label">Speakers or headphones</div><select id="speakers"></select>
         <div class="hint" id="stats"></div>
       </div>
     </details>
+  </section>
+
+  <section class="card" id="deskkeys" hidden>
+    <div class="label">Keyboard</div>
+    <div class="keys">
+      <span><kbd>↑</kbd> <kbd>↓</kbd></span><span>Original vocal ±10%</span>
+      <span><kbd>V</kbd></span><span>Vocal 10% / 40% guide</span>
+      <span><kbd>←</kbd> <kbd>→</kbd></span><span>Key down / up</span>
+      <span><kbd>0</kbd></span><span>Back to the original key</span>
+    </div>
+    <div class="label" style="margin-top:14px">Phone remote</div>
+    <div class="hint" style="margin-top:0">On a phone on the same Wi-Fi, open <span class="url" id="phoneurl"></span>
+      or scan the code on the lyrics screen.</div>
   </section>
 </main>
 <script src="/theme.js"></script>
@@ -158,6 +231,10 @@ function set(field, value){
   render();
   if (!timer) timer = setTimeout(function(){ var b = pending; pending = {}; timer = null; post("/set", b); }, 80);
 }
+var ICONS = {
+  play: '<svg viewBox="0 0 24 24"><path d="M8 5.6v12.8a1 1 0 0 0 1.5.9l10-6.4a1 1 0 0 0 0-1.7l-10-6.4A1 1 0 0 0 8 5.6z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg>'
+};
 function fresh(field){ return !touched[field] || Date.now() - touched[field] > 1500; }
 function clock(s){ s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
 
@@ -202,22 +279,35 @@ function render(){
   else msg = "Getting ready: the song starts in about " + Math.round(S.latency) + " s.";
   $("status").textContent = msg;
   $("status").className = "status" + (bad ? " warn" : "");
-  if (DESK) $("phonehint").textContent = "Phone remote: open " + S.phone_url + " on a phone on the same Wi-Fi, or scan the code on the lyrics screen.";
-  $("pp").innerHTML = S.spotify_playing ? "&#10074;&#10074;" : "&#9654;";
-  $("startstop").textContent = S.active ? "Stop" : "Start";
-  $("startstop").className = S.active ? "" : "primary";
+  // The short version of the same, top right.
+  var pill = bad ? ["warn", "Problem"] : !S.active ? ["", "Off"] : !S.ready ? ["busy", "Starting"]
+    : S.playing ? ["ok", "Karaoke on"]
+    : !S.spotify_playing || !S.spotify_open ? ["", "Paused"] : ["busy", "Getting ready"];
+  $("pill").className = "pill " + pill[0];
+  $("pilltext").textContent = pill[1];
+  if (DESK) $("phoneurl").textContent = S.phone_url || "";
+  if ($("pp").dataset.p !== String(S.spotify_playing)){
+    $("pp").dataset.p = S.spotify_playing;
+    $("pp").innerHTML = S.spotify_playing ? ICONS.pause : ICONS.play;
+  }
+  $("startstop").textContent = S.active ? "Stop karaoke" : "Start karaoke";
+  $("startstop").className = S.active ? "stop" : "primary";
+  document.querySelectorAll("[data-vocal]").forEach(function(b){ b.classList.toggle("on", Math.round(st.vocal) === +b.dataset.vocal); });
+  $("keysub").textContent = st.key === 0 ? "original key" : Math.abs(st.key) === 1 ? "semitone" : "semitones";
   if (fresh("vocal")) $("vocal").value = st.vocal;
   if (fresh("volume")) $("volume").value = st.volume;
-  $("miccard").hidden = !S.player;
-  if (fresh("mic")) $("mic").value = st.mic;
-  if (fresh("echo")) $("echo").value = st.echo;
-  $("micv").textContent = Math.round(st.mic) + "%";
-  $("echov").textContent = Math.round(st.echo) + "%";
+  renderMic(st);
   $("vocalv").textContent = Math.round(st.vocal) + "%";
   $("volumev").textContent = Math.round(st.volume) + "%";
   $("keyv").textContent = st.key > 0 ? "+" + st.key : String(st.key);
   $("offv").textContent = (st.lyrics_offset / 1000).toFixed(1) + " s";
   var o = S.options;
+  if (o.eq && $("eq").dataset.k !== o.eq.join("|")){
+    $("eq").dataset.k = o.eq.join("|");
+    $("eq").innerHTML = o.eq.map(function(n){ return '<button data-eq="' + n + '">' + n + '</button>'; }).join("");
+    $("eq").querySelectorAll("button").forEach(function(b){ b.onclick = function(){ set("eq", b.dataset.eq); }; });
+  }
+  $("eq").querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.eq === st.eq); });
   fill($("delay"), o.delay.map(function(d){ return [d, d]; }), st.delay);
   fill($("model"), Object.keys(o.model).map(function(k){ return [k, o.model[k]]; }), st.model);
   fill($("speakers"), o.speakers.map(function(n){ return [n, n]; }), st.speakers);
@@ -225,19 +315,59 @@ function render(){
   $("stats").textContent = x ? "GPU " + Math.round(x.gpu_load * 100) + "% · underruns " + x.underruns + " · drift skips " + x.dropped : "";
 }
 
+// The microphone card. On the Mac route the Mac mixes the mic (level and reverb only); otherwise the PC does,
+// with the mic picked here and the full chain (karaoke/mic.py).
+function chips(el, names, current, field){
+  if (el.dataset.k !== names.join("|")){
+    el.dataset.k = names.join("|");
+    el.innerHTML = names.map(function(n){ return '<button data-v="' + n + '">' + n + '</button>'; }).join("");
+    el.querySelectorAll("button").forEach(function(b){ b.onclick = function(){ set(field, b.dataset.v); }; });
+  }
+  el.querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.v === current); });
+}
+function renderMic(st){
+  var mac = !!S.player, m = S.mic || {}, o = S.options;
+  $("miclabel").textContent = mac ? "Microphone (on the Mac)" : "Microphone";
+  $("micdev").hidden = mac;
+  if (!mac) fill($("micdev"), [["", "Off: no microphone on this PC"]].concat((o.mic_devices || []).map(function(n){ return [n, n]; })), st.mic_device);
+  $("micon").hidden = !mac && !st.mic_device;
+  $("pcfx").hidden = mac;
+  $("meterwrap").hidden = mac || !m.on;
+  ["mic", "echo", "delay_level", "delay_ms", "delay_repeat"].forEach(function(f){
+    if (fresh(f)) $(f).value = st[f];
+    $(f + "v").textContent = f === "delay_ms" ? Math.round(st[f]) + " ms" : Math.round(st[f]) + "%";
+  });
+  chips($("rsize"), o.reverb_size || [], st.reverb_size, "reverb_size");
+  chips($("voice"), o.voice || [], st.voice, "voice");
+  $("comp").classList.toggle("on", !!st.comp);
+  $("gate").classList.toggle("on", !!st.gate);
+  var pk = m.peak || 0, hot = pk > 0.9;
+  $("meter").style.width = Math.min(100, pk > 0 ? Math.max(0, 100 + 20 * Math.log10(pk) * 100 / 60) : 0) + "%";
+  $("meter").className = hot ? "hot" : "";
+  var hint = "The level starts at 0 each time, so it never squeals: raise it slowly, pointing the mic away from the speakers.";
+  if (mac) hint = "The level starts at 0 each time so it never squeals. Through the Mac's speakers, keep it low.";
+  else if (m.error) hint = m.error;
+  else if (hot) hint = "The mic is too loud at its input (the bar turns orange): lower its level in Windows, Settings > System > Sound > Input, then use this slider.";
+  else if (m.on && m.latency_ms) hint = "About " + m.latency_ms + " ms from the mic to the speakers. " + hint;
+  $("michint").textContent = hint;
+  $("michint").className = "hint" + (m.error || hot ? " warn" : "");
+}
+
 // The desktop window (?desk=1): starts karaoke when it opens and stops it when it closes (agent.py DESK_GONE).
 var DESK = /[?&]desk=1/.test(location.search), autostarted = false;
 function poll(){
   fetch(DESK ? "/state?desk=1" : "/state", {cache:"no-store"}).then(function(r){ return r.json(); }).then(function(s){
-    if (S) ["vocal", "volume", "key", "lyrics_offset", "mic", "echo"].forEach(function(f){ if (!fresh(f)) s.settings[f] = S.settings[f]; });
+    if (S) ["vocal", "volume", "key", "lyrics_offset", "eq", "mic", "echo", "mic_device", "voice", "reverb_size",
+            "delay_level", "delay_ms", "delay_repeat", "gate", "comp"].forEach(function(f){ if (!fresh(f)) s.settings[f] = S.settings[f]; });
     S = s; render();
     if (DESK && !autostarted){ autostarted = true; if (!s.active) post("/start", {output: "pc", desk: true}); }
-  }).catch(function(){ $("status").textContent = DESK ? "Project Karaoke has stopped. Close this window and open it again from the desktop icon." : "Can't reach the PC — is it on?"; })
+  }).catch(function(){ $("pill").className = "pill warn"; $("pilltext").textContent = "Not connected"; $("status").textContent =DESK ? "Project Karaoke has stopped. Close this window and open it again from the desktop icon." : "Can't reach the PC — is it on?"; })
     .finally(function(){ setTimeout(poll, 500); });
 }
 if (DESK){
   document.title = "Project Karaoke";
   $("deskhint").hidden = false;
+  $("deskkeys").hidden = false;
   addEventListener("pagehide", function(){ navigator.sendBeacon("/bye", "{}"); });
   addEventListener("keydown", function(e){
     if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" && e.target.type !== "range" || e.ctrlKey || e.altKey || e.metaKey || !S) return;
@@ -245,7 +375,7 @@ if (DESK){
     if (k === "ArrowUp" || k === "ArrowDown"){ v = Math.max(0, Math.min(100, Math.round(v / 10) * 10 + (k === "ArrowUp" ? 10 : -10))); set("vocal", v); $("vocal").value = v; }
     else if (k === "ArrowLeft" || k === "ArrowRight") key(k === "ArrowRight" ? 1 : -1);
     else if (k === "0") key(0);
-    else if (k === "v" || k === "V"){ v = v < 1 ? 30 : 0; set("vocal", v); $("vocal").value = v; }
+    else if (k === "v" || k === "V"){ v = Math.round(v) === 40 ? 10 : 40; set("vocal", v); $("vocal").value = v; }
     else return;
     e.preventDefault();
   });
@@ -262,15 +392,18 @@ $("seek").oninput = function(){ touched.seek = Date.now() + 3000; $("elapsed").t
 $("seek").onchange = function(){ touched.seek = Date.now(); post("/transport", {action: "seek", value: +this.value}); };
 $("startstop").onclick =function(){ post(S && S.active ? "/stop" : "/start", {output: S && S.player ? "mac" : "pc", desk: DESK}); };
 $("vocal").oninput = function(){ set("vocal", +this.value); };
-$("mic").oninput = function(){ set("mic", +this.value); };
-$("echo").oninput = function(){ set("echo", +this.value); };
+["mic", "echo", "delay_level", "delay_ms", "delay_repeat"].forEach(function(f){ $(f).oninput = function(){ set(f, +this.value); }; });
+$("micdev").onchange = function(){ set("mic_device", this.value); };
+$("comp").onclick = function(){ if (S) set("comp", !S.settings.comp); };
+$("gate").onclick = function(){ if (S) set("gate", !S.settings.gate); };
 $("volume").oninput = function(){ set("volume", +this.value); };
 document.querySelectorAll("[data-vocal]").forEach(function(b){ b.onclick = function(){ set("vocal", +b.dataset.vocal); $("vocal").value = b.dataset.vocal; }; });
 function key(d){ if (S) set("key", Math.max(-12, Math.min(12, (d === 0 ? 0 : S.settings.key + d)))); }
 $("keydown").onclick = function(){ key(-1); };
 $("keyup").onclick = function(){ key(1); };
 $("keyreset").onclick = function(){ key(0); };
-function off(d){ if (S) set("lyrics_offset", d === 0 ? 0 : S.settings.lyrics_offset + d); }
+var LYRICS_OFFSET = -500;   // session.LYRICS_OFFSET: lines light up half a second early
+function off(d){ if (S) set("lyrics_offset", d === 0 ? LYRICS_OFFSET : S.settings.lyrics_offset + d); }
 $("offdown").onclick = function(){ off(-100); };
 $("offup").onclick = function(){ off(100); };
 $("offreset").onclick = function(){ off(0); };

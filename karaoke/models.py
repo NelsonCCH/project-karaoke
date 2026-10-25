@@ -13,7 +13,7 @@ Speed on an RTX 3090 at the native window, fp32 (tools/bench_models.py): 16-25% 
 MODELS = {
     "becruily-karaoke": {
         "file": "mel_band_roformer_karaoke_becruily.ckpt",
-        "label": "Karaoke: becruily (recommended)",
+        "label": "Karaoke: becruily",
         "size": "1.7 GB",
     },
     "anvuew-karaoke": {
@@ -33,12 +33,15 @@ MODELS = {
     },
     "kim-vocals": {
         "file": "vocals_mel_band_roformer.ckpt",
-        "label": "All vocals removed, backing vocals too: Kim",
+        "label": "All vocals removed, backing vocals too: Kim (recommended)",
         "size": "0.9 GB",
     },
 }
 
-DEFAULT_MODEL = "becruily-karaoke"
+# Default by measurement (tools/benchmark_models.py, 25 MUSDB18-HQ test songs, instrumental SDR where backing
+# vocals count as voice, 2026-10-24): Kim 17.3 dB at a 6 s window, the four karaoke models 11.2-11.7 dB; Kim won on
+# every song. The karaoke models keep the backing vocals on purpose, which is what they lose on.
+DEFAULT_MODEL = "kim-vocals"
 
 # Analysis window in seconds (None = the model's own ~11 s). The window is the latency floor; total latency is
 # window * 1.25 + BANK_MARGIN + HOLD (pipeline.py). SDR against the full window, tools/latency_eval.py, live
@@ -55,4 +58,4 @@ WINDOWS = {
     "~2 s": 1,
     "~1.5 s": 0.75,
 }
-DEFAULT_WINDOW = "~2 s"
+DEFAULT_WINDOW = "~4.5 s"
