@@ -26,6 +26,9 @@ time, macOS may ask to let Terminal control Terminal: allow it). If you move thi
      3 = Sound output set to the MacBook speakers
      4 = Sound output set to the TV (menu bar > Sound)
      5 = Same as 4, with the TV in Game Mode
+  6) How long does your voice take from the mic to the speakers? ~30 s: mic on, pointed at the speakers you sing
+     through (wired or HDMI; Bluetooth / AirPlay add 150 ms or more). Tries three CoreAudio buffer sizes and keeps
+     the fastest one that plays without clicks for 1) Sing.
   Test results go to results.txt in this folder.
 
 Singing away from home (a friend's place):

@@ -85,7 +85,11 @@ speakers). In the **Microphone** card, pick it from the list. The rest of the ca
 | **Noise gate** | Turns the mic down between phrases, so it does not keep picking up the speakers or the room. On by default. |
 
 Under the level, the card shows about how long your voice takes from the mic to the speakers (Windows' own
-figure, ~50 ms). A limiter keeps the voice from ever clipping, however loud someone shouts. With the Mac route
+figure). While a mic is in use the app plays to the speakers through Windows' direct driver path (WDM-KS) and
+holds the mic for itself, which measured ~28 ms from mic to air on a Realtek PC instead of ~170 ms; other
+programs cannot play on those speakers meanwhile. An automatic anti-feedback cuts a narrow notch wherever the room
+starts to howl, and lets it go about 40 s after the howl stopped. A limiter keeps the voice from ever clipping,
+however loud someone shouts. With the Mac route
 (docs/living-room.md option D) the Mac mixes the mic instead, and the card offers its level and reverb only.
 
 - Plugged the mic in while karaoke was on? Press **Stop karaoke** and **Start karaoke** once so the list sees it.

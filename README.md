@@ -104,8 +104,13 @@ Spotify --(per-app output)--> CABLE Input ==> CABLE Output --> separation --> vo
   which runs it for as long as its window is open. Its main thread owns the audio streams, because WASAPI
   streams opened from a worker thread fail here ("WDM-KS -9999").
 - `karaoke/mic.py` is the PC's microphone: a low-latency input stream whose voice the speakers' callback adds on
-  top of the karaoke, through high-pass, gate, tone, compressor, level, reverb + echo and a limiter, block-wise in
-  numpy (~4% of real time). The music can run seconds late because the lyrics follow it; the voice cannot.
+  top of the karaoke, through high-pass, gate, tone, compressor, level, reverb + echo, anti-feedback notches and a
+  limiter, block-wise in numpy (~4% of real time). The music can run seconds late because the lyrics follow it; the
+  voice cannot. With a mic the speakers open through WDM-KS when Windows lists the same device there
+  (`pipeline.ks_twin`) and the mic opens WASAPI-exclusive in 2 ms blocks: WASAPI shared mode measured ~170 ms
+  mic-to-air on a Realtek PC, this ~28 ms. Mic and speakers hand over different block sizes on two clocks, so
+  `Mic.pull` keeps a small queue (one mic block + one speaker block + a margin it learns from gaps, ~6 ms on the
+  ATR2100x at 2 ms speaker blocks); playing whatever was queued left blocks short, a constant crackle on the voice.
 - `karaoke/lyrics.py` fetches lyrics from LRCLIB, matching on title and duration, and keeps every answer in
   `lyrics_cache.json`, so a song played again shows its lyrics at once.
 - `karaoke/models.py` lists the models with their leaderboard scores.

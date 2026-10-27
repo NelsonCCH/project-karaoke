@@ -31,13 +31,15 @@ echo "  2) Test: can this Mac run the models? (10-20 min, keep it plugged in)"
 echo "  3) Test: sound delay - sound output = MacBook speakers"
 echo "  4) Test: sound delay - sound output = the TV"
 echo "  5) Test: sound delay - sound output = the TV, TV in Game Mode"
-read -r -p "Type 1-5 and press Return: " n
+echo "  6) Test: mic delay - picks the fastest clean setting for your voice (~30 s, mic on, pointed at the speakers)"
+read -r -p "Type 1-6 and press Return: " n
 case "$n" in
   1) uv run player.py ;;
   2) uv run mac_bench.py ;;
   3) uv run tv_latency.py mac-speakers ;;
   4) uv run tv_latency.py tv ;;
   5) uv run tv_latency.py tv-gamemode ;;
+  6) uv run mic_latency.py ;;
   *) echo "Nothing picked." ; exit 0 ;;
 esac
 echo ""

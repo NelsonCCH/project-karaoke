@@ -15,6 +15,7 @@ which song position is coming out of the speakers right now whatever the delay: 
 
 import os
 import queue
+import re
 import threading
 import time
 from collections import deque
@@ -39,6 +40,8 @@ DROP_GAP = 0.5            # seconds between drift skips at most
 SEEK_LOOK = 0.5           # seconds of input looked at after a skip / seek to find where the old song really ends
 SEEK_TAIL = 0.3           # ...which is within this much of the moment the jump is noticed (measured 0.10-0.19 s)
 QUIET_DB = -50            # 10 ms RMS below this is the gap Spotify leaves between the old audio and the new
+KS_LATENCY = 0.002        # s of WDM-KS output buffer while a mic is in use (PortAudio reports ~3 ms, 2 ms blocks)
+GENERIC_WORDS = {"audio", "hd", "high", "definition", "device", "output", "input", "usb", "2nd", "wave"}
 
 
 def wasapi_devices(kind):
@@ -54,6 +57,24 @@ def find_device(kind, *needles):
         if all(n.lower() in name.lower() for n in needles):
             return i
     return None
+
+
+def ks_twin(out_dev):
+    """The WDM-KS device for the same speakers as WASAPI output `out_dev`, or None. Windows names them differently
+    ("Speakers (Realtek(R) Audio)" there, "Speakers (Realtek HD Audio output)" here): the same name before the
+    bracket, and a word of the adapter's name in common."""
+    def split(name):
+        base, _, rest = name.partition(" (")
+        words = {w for w in re.findall(r"[a-z0-9-]+", rest.lower().replace("(r)", "")) if w not in GENERIC_WORDS}
+        return base.strip().lower(), words
+    apis = sd.query_hostapis()
+    ks = next((i for i, a in enumerate(apis) if "WDM-KS" in a["name"]), None)
+    if ks is None or out_dev is None:
+        return None
+    base, words = split(sd.query_devices(out_dev)["name"])
+    hits = [i for i, d in enumerate(sd.query_devices()) if d["hostapi"] == ks and d["max_output_channels"] >= 2
+            and split(d["name"])[0] == base and split(d["name"])[1] & words]
+    return hits[0] if len(hits) == 1 else None
 
 
 def default_speakers():
@@ -130,7 +151,7 @@ class Pipeline:
         self.eq_preset = DEFAULT_EQ     # eq.PRESETS name; the mixer fades to a new one by itself
         self.sep = None
         self.running = False
-        self.stats = {"state": "stopped", "underruns": 0, "gpu_load": 0.0, "dropped": 0}
+        self.stats = {"state": "stopped", "underruns": 0, "gpu_load": 0.0, "dropped": 0, "late": 0}
 
     # ---- lifecycle -------------------------------------------------------------------------------------------
 
@@ -175,7 +196,7 @@ class Pipeline:
         self.playing = False
         self.out_latency = 0.0                  # the device's own output latency, known once the stream starts
         self.running = True
-        self.stats.update(state="buffering", underruns=0, dropped=0)
+        self.stats.update(state="buffering", underruns=0, dropped=0, late=0)
         self.worker = threading.Thread(target=self._separate_loop, daemon=True)
         self.mixer = threading.Thread(target=self._mix_loop, daemon=True)
         self.worker.start()
@@ -188,6 +209,19 @@ class Pipeline:
         self.on_status(f"Buffering ~{self.latency:.0f} s...")
 
     def _open_output(self):
+        # With a mic, the same speakers through WDM-KS when Windows offers them there: measured on a Realtek PC,
+        # WASAPI's "low" still took ~120 ms to the air (the driver's sound effects run in it), WDM-KS ~10 ms.
+        # It holds the speakers for itself while open, which is fine: karaoke is all that plays on them.
+        ks = ks_twin(self.out_dev) if self.low_latency else None
+        if ks is not None:
+            try:
+                self.out_stream = sd.OutputStream(device=ks, samplerate=self.out_sr, channels=2, dtype="float32",
+                                                  callback=self._out_cb, blocksize=0, latency=KS_LATENCY)
+                self.out_stream.start()
+                self.out_latency = float(self.out_stream.latency)
+                return
+            except Exception:
+                pass                    # busy or unsupported: WASAPI below
         # "low" keeps the singer's own voice prompt (tens of ms); the music has its own buffer either way.
         self.out_stream = sd.OutputStream(device=self.out_dev, samplerate=self.out_sr, channels=2, dtype="float32",
                                           callback=self._out_cb, blocksize=0,
@@ -437,6 +471,8 @@ class Pipeline:
         return (dry * (1 - g)[:, None] + wet * g[:, None]).astype(np.float32)
 
     def _out_cb(self, outdata, frames, t, status):
+        if status.output_underflow:
+            self.stats["late"] += 1     # this callback came too late for the device: a click, whatever was queued
         y = self.out.pop(frames)
         if len(y) < frames:
             if self.playing and not self.paused:

@@ -34,8 +34,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CONF = os.path.expanduser("~/karaoke-bench/player.json")
 PORT = 8765
 SR = 48000
-BLOCK = 256                 # frames per audio callback, ~5 ms: the mic's own share of the voice latency
-AWAY_BUFFER = 2.0           # seconds of audio buffered over the internet (home Wi-Fi: the PC's 0.6 s default)
+BLOCK = 128                 # frames per audio callback (~2.7 ms) unless mic_latency.py picked one: the voice's share
+# macOS lets a program set the hardware buffer of the devices it opens (Windows does not): with this, the mic and the
+# speakers run at BLOCK frames instead of the device default (often 512, ~11 ms each way).
+CA = dict(extra_settings=sd.CoreAudioSettings(change_device_parameters=True)) if sys.platform == "darwin" else {}
+MIC_QUEUE_MAX = 0.1         # s of mic audio kept at most if the speakers stop asking (take_mic keeps far less)
+MIC_MARGIN_MAX = 0.03       # s of extra mic queue take_mic may learn from gaps
+AWAY_BUFFER = 2.0          # seconds of audio buffered over the internet (home Wi-Fi: the PC's 0.6 s default)
 
 
 # ---- finding the PC ----------------------------------------------------------------------------------------
@@ -101,7 +106,7 @@ def remember(host, conf):
         st = {}
     remote = [a for a in st.get("addresses", []) if is_tailscale(a)]
     home = conf.get("pc") if is_tailscale(host) else host       # "pc" stays the home address
-    conf = {"pc": home, "name": st.get("hostname") or conf.get("name"), "remote": remote or conf.get("remote", [])}
+    conf = {**conf, "pc": home, "name": st.get("hostname") or conf.get("name"), "remote": remote or conf.get("remote", [])}
     os.makedirs(os.path.dirname(CONF), exist_ok=True)
     with open(CONF, "w") as f:
         json.dump(conf, f)
@@ -310,6 +315,10 @@ class Player:
         self.away = is_tailscale(host)     # over the internet: ask the PC for a bigger buffer
         self.q, self.qsize = deque(), 0
         self.mic_q, self.mic_size = deque(), 0         # mic frames waiting for the next output block
+        self.mic_margin, self.mic_primed, self.mic_gaps = 0, False, 0
+        self.block = int(load_conf().get("block") or BLOCK)       # mic_latency.py saves the fastest clean one
+        # Callback times and the mic queue's fill, for the one-line timing report once the mic is up.
+        self.mic_times, self.out_times, self.mic_fill = deque(maxlen=2000), deque(maxlen=2000), deque(maxlen=2000)
         self.mic_peak = 0.0
         self.lock = threading.Lock()
         self.mic_gain = 0.0
@@ -411,17 +420,42 @@ class Player:
     # The mic and the speakers are separate streams: on a Mac they are separate devices anyway (built-in mic +
     # AirPods / TV), and one combined stream fails across devices. Mic frames meet the output through mic_q.
     def mic_callback(self, indata, frames, t, status):
+        self.mic_times.append(time.monotonic())
         x = indata[:, 0].copy()
         self.mic_peak = max(self.mic_peak, float(np.abs(x).max()))
         with self.lock:
             self.mic_q.append(x)
             self.mic_size += len(x)
-            while self.mic_size > 4 * BLOCK:        # never let the voice fall behind: drop the oldest
+            while self.mic_size > MIC_QUEUE_MAX * SR:   # the speakers stopped asking: drop the oldest
                 self.mic_size -= len(self.mic_q.popleft())
+
+    def _drop_mic(self, k):
+        while k > 0 and self.mic_q:
+            b = self.mic_q[0]
+            if len(b) <= k:
+                self.mic_q.popleft()
+                k -= len(b)
+                self.mic_size -= len(b)
+            else:
+                self.mic_q[0] = b[k:]
+                self.mic_size -= k
+                k = 0
 
     def take_mic(self, n):
         out, got = np.zeros(n, np.float32), 0
         with self.lock:
+            # The mic and the speakers are two devices on two clocks, and each may hand over its blocks in
+            # bursts. Playing whatever was queued (as this did before, with a 4-block cap) left blocks short or
+            # dropped whole blocks: a stuttering, broken-up voice. As on the PC (karaoke/mic.py, Mic.pull): the
+            # voice starts once one mic block + one speaker block + a learnt margin is queued, stays that full
+            # (the oldest is dropped when the mic's clock runs ahead), and each gap that still happens adds
+            # one block of margin, up to MIC_MARGIN_MAX.
+            target = self.block + n + self.mic_margin
+            if not self.mic_primed:
+                if self.mic_size < target:
+                    return out
+                self.mic_primed = True
+            self._drop_mic(self.mic_size - (target + self.block))
             while got < n and self.mic_q:
                 b = self.mic_q[0]
                 k = min(n - got, len(b))
@@ -432,9 +466,15 @@ class Player:
                     self.mic_q[0] = b[k:]
                 got += k
             self.mic_size -= got
+            if got < n:
+                self.mic_primed = False
+                self.mic_margin = min(self.mic_margin + n, int(MIC_MARGIN_MAX * SR))
+                self.mic_gaps += 1
         return out
 
     def callback(self, outdata, frames, t, status):
+        self.out_times.append(time.monotonic())
+        self.mic_fill.append(self.mic_size)
         y = self.pop(frames)
         mic = self.take_mic(frames)
         if self.mic_gain > 0:
@@ -444,21 +484,21 @@ class Player:
 
     def open_streams(self):
         """Open the current default output and input. Returns (output stream, input stream or None, message)."""
-        out = sd.OutputStream(samplerate=SR, blocksize=BLOCK, channels=2, dtype="float32", latency="low",
-                              callback=self.callback)
+        out = sd.OutputStream(samplerate=SR, blocksize=self.block, channels=2, dtype="float32", latency="low",
+                              callback=self.callback, **CA)
         out.start()
         self.out_latency = out.latency
         name = sd.query_devices(kind="output")["name"]
         try:
             mic_dev = pick_mic()
-            mic = sd.InputStream(device=mic_dev, samplerate=SR, blocksize=BLOCK, channels=1, dtype="float32",
-                                 latency="low", callback=self.mic_callback)
+            mic = sd.InputStream(device=mic_dev, samplerate=SR, blocksize=self.block, channels=1, dtype="float32",
+                                 latency="low", callback=self.mic_callback, **CA)
             mic.start()
-            voice_ms = (mic.latency + out.latency + 2 * BLOCK / SR) * 1000
+            voice_ms = (mic.latency + out.latency + 2 * self.block / SR) * 1000
             mic_name = sd.query_devices(mic_dev if mic_dev is not None else sd.default.device[0])["name"]
             msg = f"Playing on: {name}. Mic: {mic_name}, mic-to-speaker latency inside this Mac ~{voice_ms:.0f} ms"
-            if "AirPods" in name or "Bluetooth" in name:
-                msg += " (+ ~150-250 ms of Bluetooth: fine for listening, too slow to sing through)"
+            if any(w in name for w in ("AirPods", "Bluetooth", "AirPlay")):
+                msg += " (+ ~150-250 ms or more over the air: fine for listening, too slow to sing through)"
         except Exception as e:
             mic, msg = None, f"Playing on: {name}. No microphone ({e})."
         return out, mic, msg
@@ -480,8 +520,19 @@ class Player:
         out, mic, msg = self.open_streams()
         self.report(msg)
         print("Press Return to stop.")
-        silent_warned, started = False, time.monotonic()
+        silent_warned, started, gaps_told, mic_up = False, time.monotonic(), 0, None
         while not stop.wait(1.0):
+            if self.mic_gain > 0 and mic_up is None:
+                mic_up = time.monotonic()
+            if mic_up and time.monotonic() - mic_up > 10 and len(self.mic_times) > 100:
+                mic_up = False                  # once per run: how the two devices really deliver
+                mi, oi = np.diff(list(self.mic_times)) * 1000, np.diff(list(self.out_times)) * 1000
+                print(f"Mic timing: mic callbacks p50 {np.median(mi):.1f} / max {mi.max():.1f} ms, speakers p50"
+                      f" {np.median(oi):.1f} / max {oi.max():.1f} ms, mic queue p50"
+                      f" {np.median(list(self.mic_fill)) / SR * 1000:.1f} ms, gaps {self.mic_gaps}")
+            if self.mic_gaps != gaps_told and self.mic_gain > 0:     # rare once the margin is learnt
+                gaps_told = self.mic_gaps
+                print(f"Mic: {gaps_told} gaps so far, queue margin now {self.mic_margin / SR * 1000:.0f} ms")
             now = default_devices()
             if now != devices:          # AirPods / TV / speakers picked in the Sound menu: follow it
                 devices = now
