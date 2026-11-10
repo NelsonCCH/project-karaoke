@@ -1,0 +1,15 @@
+.venv/
+models/
+__pycache__/
+.pytest_cache/
+models.json
+*.wav
+*.flac
+*.mp3
+settings.json
+lyrics_cache.json
+agent.log
+mac/results.txt
+docs/mic-research.md
+room_eq.json
+karaoke/web/look/fonts/*.woff2

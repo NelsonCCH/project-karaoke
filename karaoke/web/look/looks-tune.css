@@ -1,0 +1,187 @@
+/* Fits the arsenal's styles (kit.css, written for a 390x844 phone mock-up) to the real remote page, then the last
+   mile per style. Hand-written; kit.css is generated. Everything here is under .kit, so the plain page (no style
+   chosen) is untouched, except .ic, which only exists to be filled by a style. */
+#kit:not(.kit) .ic{display:none}
+
+/* ---- the page is the phone: no frame, the screen scrolls with the page, layers cover the viewport */
+.kit{width:auto;height:auto;min-height:100vh;min-height:100dvh;border-radius:0;box-shadow:none;overflow:clip;
+  /* the house variables the page's own CSS uses, taken from the style */
+  --paper:var(--bg);--card:var(--surface);--accent-soft:color-mix(in srgb,var(--accent) 20%,var(--surface))}
+.kit .scr{height:auto;min-height:100vh;min-height:100dvh;overflow:visible}
+.kit>.fx,.kit::after,.kit::before{position:fixed!important}
+.kit[data-scene]:not([data-scene="none"]) .scr>.scn{position:fixed;inset:0;height:auto;margin:0}
+.kit .scn>.art{--z:1;inset:0;left:0;top:0;height:auto;width:auto;aspect-ratio:auto;transform:none;
+  background:var(--art) 50% 0/cover no-repeat}
+.kit[data-scnfit="band"] .scn>.art{bottom:auto;height:min(62vh,640px);
+  -webkit-mask:linear-gradient(#000 70%,transparent);mask:linear-gradient(#000 70%,transparent)}
+.kit[data-scnfit="band"] .scn>.art::after{display:none}
+html[data-look] body{background:var(--look-bg,#000)}
+
+/* ---- header, column, cards */
+.kit .top{padding:max(14px,env(safe-area-inset-top)) 18px 10px;max-width:560px;margin:0 auto;position:relative;z-index:10}
+.kit .brand svg{display:none}
+.kit .ttl{font-size:calc(22px * var(--s-display))}
+.kit main.body{max-width:560px;margin:0 auto;padding:4px 16px 40px}
+.kit main.body>.card{margin:0}
+.kit main.body>.card[hidden]{display:none}
+.kit .card .label{text-transform:none;letter-spacing:var(--track-display);color:var(--ink);margin-bottom:10px}
+.kit .label.h{font-size:calc(16px * var(--s-display));line-height:1.25}
+.kit .card .label:not(.h){font-family:var(--f-display);font-weight:600;font-size:.86rem;color:var(--muted)}
+.kit .labelrow{margin-bottom:6px}
+.kit .labelrow .label.h{margin:0}
+.kit .hint,.kit .status,.kit .sub,.kit .artist,.kit .time,.kit .keysub{color:var(--muted)}
+.kit .song.hero{font-size:calc(28px * var(--s-display));font-weight:var(--w-display);min-height:0;line-height:1.12}
+.kit .artist{font-size:.95rem;margin-top:4px}
+.kit .c-hero>.row:first-child{align-items:center!important}
+.kit .stat-ic{top:14px;right:14px}
+
+/* ---- album cover as the vinyl sleeve (kit.css .cover.vinyl) */
+.kit .cover.vinyl{width:64px;height:64px}
+.kit .cover.vinyl[hidden]{display:none}
+.kit .cover.vinyl img{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;border-radius:min(var(--r),10px)}
+.kit .cover.vinyl .disc{top:4px;left:26px;width:56px;height:56px}
+#kit:not(.kit) .cover.vinyl{display:contents}
+#kit:not(.kit) .cover.vinyl .disc{display:none}
+
+/* ---- icons: the style's icon set replaces the page's own drawings */
+.kit button:has(>.ic)>svg{display:none}
+.kit .transport .mode .ic{width:22px;height:22px}
+.kit .transport .mode.on{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.kit .transport .mode{color:var(--ink);border-radius:50%}
+.kit .transport{gap:14px;margin-top:12px}
+.kit .transport .btn.round{width:52px;height:52px}
+.kit .transport #pp.btn.round.lg{width:68px;height:68px;background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.kit .transport #pp .ic{width:32px;height:32px}
+.kit .transport .mode.btn{width:2.6rem;height:2.6rem;padding:0;background:none;border-color:transparent;box-shadow:none}
+.kit .transport .mode.on.btn{background:color-mix(in srgb,var(--accent) 18%,transparent)}
+.kit .label.h .hi,.kit summary .hi{width:1.15em;height:1.15em;margin-right:.45em;color:var(--accent);vertical-align:-.2em}
+
+/* ---- buttons */
+.kit .btn,.kit .chip{min-height:44px}
+.kit .actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:0;flex:1;font-weight:600;text-decoration:none;
+  padding:.6rem .8rem;min-height:48px}
+.kit .actions .btn .ic{margin-right:8px}
+.kit .actions a.btn{color:var(--ink);border-radius:var(--r-btn)}
+.kit .actions .btn.stop{color:var(--ink)}
+.kit .actions .btn.stop .ic{color:var(--danger)}
+.kit .lyr{white-space:nowrap}
+.kit button.step{min-width:3.4rem;font-size:1.4rem;padding:0 .8rem}
+.kit .value{font-family:var(--f-num);font-weight:var(--w-display);font-size:calc(30px * var(--s-display));line-height:1}
+.kit .pct{font-family:var(--f-num);font-weight:var(--w-display);font-size:1.05rem;color:var(--ink)}
+.kit .chips{gap:8px;margin-top:10px}
+.kit .chips button.chip{flex:1 1 auto;padding:0 12px}
+.kit .chips.wrap button.chip{flex:1 1 auto;min-width:28%;white-space:normal;line-height:1.2;padding:4px 12px}
+/* display faces with one weight (Anton, Audiowide, Poiret One...) must not be smeared into a fake bold */
+.kit{font-synthesis:none}
+.kit button.small.btn{min-height:36px;padding:0 .8rem}
+.kit button.danger.btn{color:var(--danger)}
+.kit button.danger.sure.btn{background:var(--danger);border-color:var(--danger);color:#fff}
+.kit #presets button.add{border-style:dashed;color:var(--accent);background:transparent}
+
+/* ---- sliders drawn like the style's bars: track, filled part up to --p, a knob */
+.kit input[type=range]{-webkit-appearance:none;appearance:none;background:none;height:32px;margin:0;cursor:pointer;--trk:8px}
+.kit input[type=range]::-webkit-slider-runnable-track{height:var(--trk);border-radius:min(var(--r-btn),4px);
+  background:linear-gradient(var(--accent),var(--accent)) 0 0/var(--p,0%) 100% no-repeat,color-mix(in srgb,var(--ink) 15%,transparent)}
+.kit input[type=range]::-moz-range-track{height:var(--trk);border-radius:min(var(--r-btn),4px);background:color-mix(in srgb,var(--ink) 15%,transparent)}
+.kit input[type=range]::-moz-range-progress{height:var(--trk);border-radius:min(var(--r-btn),4px);background:var(--accent)}
+.kit input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;margin-top:calc(var(--trk) / 2 - 11px);
+  background:var(--surface);border:3px solid var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.kit input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--surface);border:3px solid var(--accent)}
+.kit input[type=range]:disabled{opacity:.5}
+.kit .progress input[type=range]{--trk:6px}
+.kit .meter{height:6px;background:color-mix(in srgb,var(--ink) 15%,transparent)}
+
+/* ---- form fields, popup, details */
+.kit select,.kit .textin{background:var(--surface);color:var(--ink);border:max(1px,var(--bw)) solid var(--line);border-radius:var(--r-btn);min-height:44px}
+.kit kbd{background:var(--bg);color:var(--ink);border-color:var(--line)}
+.kit details.engine>summary{color:var(--ink);font-family:var(--f-display);font-weight:var(--w-display);font-size:calc(15px * var(--s-display));
+  list-style:none;min-height:28px;display:flex;align-items:center}
+.kit details.engine>summary::-webkit-details-marker{display:none}
+.kit details.engine>summary::after{content:"";margin-left:auto;width:8px;height:8px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.kit details.engine[open]>summary::after{transform:rotate(-135deg)}
+.kit .popup>div.card{border:2px solid var(--warn);padding:18px}
+.kit .theme-menu{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.kit .theme-menu button{color:var(--ink)}
+.kit .theme>summary,.kit .lang-toggle{background:var(--surface);border-color:var(--line)}
+.kit .lang-toggle button{color:var(--muted)}
+.kit .lang-toggle button.on{background:var(--accent);color:var(--accent-ink)}
+
+/* ---- header at phone width: the title never shrinks; the status pill is the one that gives */
+.kit .brand{flex:1 0 auto}
+.kit .ttl{flex:none;overflow:visible}
+.kit .top .pill{font-size:11.5px;padding:3px 8px;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.kit .top{gap:8px}
+.kit .theme>summary{display:flex;align-items:center;justify-content:center;width:34px;height:30px;padding:0;color:var(--accent)}
+.kit .theme>summary .emo{display:none}
+.kit .theme>summary .ic{width:20px;height:20px}
+.kit .arr{display:none}
+/* a centred layout (Art Deco) centres the title over one row of controls instead of stacking each one */
+.kit[data-layout="centered"] .top{flex-direction:row;flex-wrap:wrap;justify-content:center;row-gap:8px}
+.kit[data-layout="centered"] .top .brand{flex:1 0 100%;justify-content:center}
+
+/* ---- a scene painting shows in a window above the first card, smaller than the mock-up's so the player fits */
+.kit[data-scene]:not([data-scene="none"]) main.body{padding-top:110px}
+.kit[data-kitset="notebook"] main.body{padding-top:84px}
+
+/* ---- see-through cards over a painting (airy layout): a dark glass behind the text, or it fails contrast */
+.kit[data-layout="airy"][data-scene]:not([data-scene="none"]) main.body>.card:not(.c-hero){
+  background:color-mix(in srgb,var(--bg) 70%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);border-radius:var(--r);padding:18px 16px;margin-bottom:12px}
+.kit[data-look="wkw"] main.body>.card.c-hero{background:color-mix(in srgb,var(--bg) 66%,transparent);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);padding:18px 16px}
+
+/* ---- Lo-fi: the hero is a sheet of notebook paper, so its text is ink on paper */
+.kit[data-kitset="notebook"] .c-hero{--ink-paper:#2f2740;--muted-paper:#5c5070}
+.kit[data-kitset="notebook"] .c-hero :is(.hero,.status,.status.warn){color:var(--ink-paper)}
+.kit[data-kitset="notebook"] .c-hero :is(.artist,.time){color:var(--muted-paper)}
+.kit[data-kitset="notebook"] .c-hero .status.warn{color:#a8461a}
+.kit[data-kitset="notebook"] .c-hero .transport .mode{color:var(--ink-paper)}
+.kit[data-kitset="notebook"] .c-hero input[type=range]::-webkit-slider-runnable-track{
+  background:linear-gradient(var(--accent),var(--accent)) 0 0/var(--p,0%) 100% no-repeat,rgba(47,39,64,.18)}
+
+/* kit.css lifts everything after a scene to z-index 1 with .kit[data-scene]:not(..) .scr>.scn~* (0,5,0): the id wins over it, so
+   the header (with the style menu) stays above the cards and the pop-up stays fixed to the screen. */
+#kit .scr>.top{position:relative;z-index:10}
+#kit .scr>.popup{position:fixed;z-index:20}
+.kit.tv .scr>.scn~:is(.tvtop,.tvbar,.qr){position:fixed}
+.kit.tv .scr>.scn~:is(#viewport,.msg){position:absolute}
+
+/* ================= the lyrics screen (tv.html): read from a sofa at 3 m ================= */
+.kit.tv{--sung:var(--ink);--todo:color-mix(in srgb,var(--muted) 62%,var(--bg));--fill:var(--accent);overflow:hidden}
+.kit.tv .scr{height:100vh;min-height:0;overflow:hidden;background-color:var(--bg)}
+/* the painting stays, dimmed well under the words */
+.kit.tv[data-scene]:not([data-scene="none"]) .scn::before{background:color-mix(in srgb,var(--bg) 70%,transparent)}
+.kit.tv .scn>.art{height:auto!important;-webkit-mask:none!important;mask:none!important}
+.kit.tv .tvtop{background:linear-gradient(color-mix(in srgb,var(--bg) 92%,transparent) 0 60%,transparent);box-shadow:none;padding-bottom:28px}
+.kit.tv .track{font-family:var(--f-display);letter-spacing:var(--track-display);color:var(--ink)}
+.kit.tv .track b{font-weight:var(--w-display)}
+.kit.tv .keypill{background:color-mix(in srgb,var(--surface) 85%,transparent);border-color:var(--line);color:var(--ink);font-family:var(--f-num)}
+.kit.tv .times{font-family:var(--f-num);color:var(--muted);opacity:1}
+.kit.tv .line{font-family:var(--f-display);font-weight:var(--w-display);letter-spacing:var(--track-display)}
+.kit.tv .line.past{color:var(--ink);opacity:.5}
+.kit.tv .line.now{color:var(--fill)}
+.kit.tv .line.jump{color:var(--fill);opacity:1}   /* a line clicked to jump to, until the song gets there (tv.html) */
+.kit.tv .msg{font-family:var(--f-display);color:var(--ink)}
+.kit.tv .msg small{font-family:var(--f-body);color:var(--muted);opacity:1}
+.kit.tv .qr{background:var(--surface);border:max(1px,var(--bw)) solid var(--line);border-radius:min(var(--r),14px);color:var(--muted)}
+.kit.tv .qr .code{background:#fff;padding:4px}
+.kit.tv .tvbar{background:var(--accent);opacity:.9;height:5px}
+.kit.tv>.fx{opacity:.6}
+/* thin display faces (Art Deco's Poiret One) don't carry lyrics across a room: the body face, bold */
+.kit.tv[data-look="deco"] .line{font-family:var(--f-body);font-weight:700;letter-spacing:.02em}
+/* busy paintings: dim further, and give the words a soft dark halo */
+.kit.tv:is([data-look="wkw"],[data-look="deco"],[data-look="mongkok"],[data-look="lofi"]) .scn::before{background:color-mix(in srgb,var(--bg) 80%,transparent)}
+.kit.tv[data-scene]:not([data-scene="none"]) .line:not(.now){text-shadow:0 2px 14px var(--bg)}
+.kit.tv[data-look="deco"] .scn{filter:brightness(.42) saturate(.85)}
+.kit.tv[data-look="deco"] .line.now{color:#f3d98f;text-shadow:0 0 .4em rgba(243,217,143,.45),0 2px 14px var(--bg)}
+/* glowing styles: the sung line glows like a sign */
+.kit.tv[data-depth="glow"] .line.now{text-shadow:0 0 .28em color-mix(in srgb,var(--accent) 75%,transparent),0 0 .9em color-mix(in srgb,var(--accent) 35%,transparent)}
+.kit.tv[data-depth="glow"] .tvbar{box-shadow:0 0 12px var(--accent)}
+
+/* the menu: wide enough that a style's name sits on one line */
+.theme-menu{min-width:min(19.5rem,calc(100vw - 24px))}
+.theme-menu .sw-name{white-space:nowrap}
+.theme-menu .sw-sub{text-align:right}
+/* the motion switch row in the menu */
+.motion-row{border-top:1px solid var(--line)!important;border-radius:0 0 8px 8px!important;margin-top:.2rem}
+.motion-row[aria-pressed="true"] .sw-sub{color:var(--accent);font-weight:700}
